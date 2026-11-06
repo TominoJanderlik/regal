@@ -1,0 +1,31 @@
+REGÁL – rozšírenie pre Microsoft Edge (funguje aj v Google Chrome)
+=================================================================
+
+Čo robí
+  Na stránke Balíkova (Výdaj zákazníkovi) po zadaní PIN ukáže vpravo dole okienko:
+  kde je zásielka uložená (sektor / stôl / pred stolom / Allegro), malú mapu,
+  obal a poznámku. Tlačidlom „Vydaná – odstrániť“ ju jedným klikom odstráni z Regálu.
+
+Inštalácia (raz, cca 2 minúty)
+  1. Rozbaľ tento ZIP (pravé tlačidlo → Extrahovať všetko). Priečinok niekam ulož
+     natrvalo (napr. Dokumenty\regal-rozsirenie) – Edge ho používa, nemaž ho.
+  2. V Edge otvor adresu:  edge://extensions
+  3. Vľavo zapni „Režim pre vývojárov“.
+  4. Klikni „Načítať rozbalené“ a vyber priečinok regal-rozsirenie.
+  5. Klikni na ikonu skladačky vpravo hore a pri „Regál“ zapni „Zobraziť na paneli s nástrojmi“ (oko).
+
+Nastavenie (raz)
+  1. Klikni na ikonu Regál → prihlás sa tým istým e-mailom a heslom ako v aplikácii Regál.
+  2. Otvor stránku Balíkova (Výdaj zákazníkovi), klikni na ikonu Regál
+     → „Zapnúť Regál na tejto stránke“ → potvrď povolenie.
+     Rozšírenie potom číta iba túto stránku, žiadne iné.
+
+Používanie
+  Zadaj PIN v Balíkove → klikni „Zobraziť informácie o zásielke“ → vpravo dole sa ukáže miesto.
+  Kliknutím na tmavý pruh okienko zbalíš/rozbalíš, krížikom ho skryješ.
+  Po „Potvrdenie doručenia“ okienko pripomenie odstránenie z Regálu (s možnosťou Späť).
+
+Ak niečo nejde
+  • „Prihlás sa v rozšírení“ → klikni na ikonu Regál a prihlás sa.
+  • Okienko sa neukáže → skontroluj, že je rozšírenie na stránke zapnuté (ikona Regál), a obnov stránku (F5).
+  • Po aktualizácii rozšírenia: edge://extensions → pri Regáli klikni „Znova načítať“ a obnov Balíkovo.
