@@ -36,5 +36,6 @@ Ak niečo nejde
   • V okne rozšírenia (ikona Regál) je riadok „Beží ✓ …“ – ukazuje, či rozšírenie stránku vidí
     a či našlo číslo zásielky. Ak ponúkne „Zapnúť aj pre vložený rám …“, klikni naň a daj F5.
   • Ak číslo nenájde samo, napíš ho do políčka v pruhu a stlač Hľadať.
-  • Staré rozšírenie z ChatGPT vypni (edge://extensions) – číta starú tabuľku, nie Regál.
+  • Staré rozšírenie „Balíkovo → Evidencia zásielok (mapa)“ odstráň v edge://extensions – číta starú
+    tabuľku a požičiava si prihlásenie z otvorenej karty, preto vypadávalo. Regál má vlastné prihlásenie.
   • Po aktualizácii rozšírenia: edge://extensions → pri Regáli klikni „Znova načítať“ a obnov Balíkovo.

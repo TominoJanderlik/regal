@@ -62,7 +62,25 @@
     return out;
   }
 
+  const cellText = (el) => {
+    if (!el) return '';
+    const vals = [...(el.querySelectorAll?.('input, textarea') || [])].map((i) => i.value).filter(Boolean);
+    return [text(el), ...vals].join(' ');
+  };
+  const pick = (raw, loose) => {
+    const tokens = String(raw || '').split(/[\s,;|]+/).map(normalize).filter(Boolean);
+    return tokens.find(isParcel) || (loose && tokens.length === 1 && looseParcel(tokens[0]) ? tokens[0] : null);
+  };
+  const isLabelText = (s) => LABEL.test(String(s || '').replace(/\s+/g, ' ').trim());
+
   function findNumber() {
+    // 0) tabuľka: bunka hneď za bunkou „Číslo zásielky“ (tak je to na stránke Balíkova)
+    for (const row of document.querySelectorAll('tr, [role="row"]')) {
+      const cells = [...row.querySelectorAll('th, td, [role="cell"], [role="gridcell"], [role="rowheader"]')];
+      for (let i = 0; i < cells.length - 1; i++) {
+        if (isLabelText(text(cells[i]))) { const n = pick(cellText(cells[i + 1]), true); if (n) return n; }
+      }
+    }
     const labels = findLabels();
     // 1) hodnota pri štítku „Číslo zásielky“ (v DOM vedľa neho)
     for (const label of labels) {
@@ -71,6 +89,19 @@
         const strict = tokens.find(isParcel);
         if (strict) return strict;
         if (tokens.length === 1 && looseParcel(tokens[0])) return tokens[0];
+      }
+    }
+    // 1b) text stránky po riadkoch: riadok „Číslo zásielky …“ alebo riadok hneď za ním
+    const lines = (document.body.innerText || '').split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^č[ií]slo\s+z[aá]sielky\s*[:\-–]?\s*(.*)$/i);
+      if (!m) continue;
+      const same = pick(m[1], true);
+      if (same) return same;
+      for (const next of lines.slice(i + 1, i + 3)) {
+        if (/^(meno|hodnota|vybra|centov|pozn[aá]mka|pr[ií]jemca|odosielate)/i.test(next)) break;
+        const n = pick(next, true);
+        if (n) return n;
       }
     }
     const all = scanNumbers();
@@ -292,7 +323,27 @@
   new MutationObserver(check).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['value'] });
   document.addEventListener('input', check, true);
   // hodnotu políčka môže stránka nastaviť skriptom bez udalosti → občas skontrolujeme aj tak
-  setInterval(() => { if (document.visibilityState === 'visible') { const n = findNumber(); if (n) lookup(n); } }, 1500);
+  let goneSince = 0;
+  setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    const n = findNumber();
+    if (n) { goneSince = 0; lookup(n); return; }
+    // číslo zo stránky zmizlo (napr. po potvrdení doručenia) → okienko späť do pruhu „čakám“
+    if (current && !(state && (state.released || state.awaitRelease))) {
+      goneSince ||= Date.now();
+      if (Date.now() - goneSince > 1500) { current = null; state = null; goneSince = 0; card.classList.add('mini'); render(); }
+    }
+  }, 1200);
+  let burst = null;
+  const armBurst = () => {
+    clearInterval(burst);
+    let k = 0;
+    burst = setInterval(() => { const n = findNumber(); if (n) lookup(n); if (++k > 40) clearInterval(burst); }, 300);
+  };
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest?.('button, input[type="submit"], [role="button"]');
+    if (b && /zobrazi[tť]\s+inform[aá]cie/i.test(text(b) || b.value || '')) { hiddenFor = null; armBurst(); }
+  }, true);
   check();
   // v hlavnom okne ukážeme malý pruh „Regál · čakám na číslo zásielky“ – je vidieť, že rozšírenie beží
   const relevant = () => /shipment-delivery|vydaj|delivery/i.test(location.pathname) || findLabels().length > 0;
@@ -322,7 +373,10 @@
     if (/potvrdenie\s+doru[cč]enia/i.test(text(b) || b.value || '')) {
       setTimeout(() => {
         const rel = root.querySelector('[data-release]');
-        if (rel) { card.classList.remove('mini'); rel.classList.add('pulse'); rel.textContent = 'Vydaná? Odstrániť z Regálu'; }
+        if (rel) {
+          if (state) state.awaitRelease = true;   // okienko ostane, aj keď Balíkovo číslo zo stránky odstráni
+          card.classList.remove('mini'); rel.classList.add('pulse'); rel.textContent = 'Vydaná? Odstrániť z Regálu';
+        }
       }, 300);
     }
   }, true);
