@@ -60,6 +60,9 @@ async function start() {
 
   renderAll();
   state.initPhoto?.();
+  // odkaz z rozšírenia: …/regal/?q=ČÍSLO → rovno vyhľadá zásielku
+  const q0 = new URLSearchParams(location.search).get('q');
+  if (q0) { $('#q').value = q0; runSearch(q0); history.replaceState(null, '', location.pathname); }
   renderSync(store.getStatus());
 
   if (!getConfig().supabaseUrl) openSetup();
