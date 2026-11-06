@@ -43,6 +43,12 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
     </div>
+    <div id="install-bar" class="install-bar" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v7m-3-3 3 3 3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Pridaj si Regál na plochu – otvára sa ako aplikácia.</span>
+    <button type="button" class="btn small primary" data-install>Inštalovať</button>
+    <button type="button" class="icon-btn small" data-install-close aria-label="Skryť ponuku inštalácie">✕</button>
+  </div>
   </header>
 
   <div id="banner" class="banner" hidden></div>
@@ -286,11 +292,7 @@
       <h2 id="ios-title">Pridať Regál na plochu</h2>
       <button type="button" class="icon-btn" data-close aria-label="Zavrieť">✕</button>
     </header>
-    <ol class="steps">
-      <li>V Safari ťukni na tlačidlo <b>Zdieľať</b> (štvorec so šípkou).</li>
-      <li>Vyber <b>Pridať na plochu</b>.</li>
-      <li>Potvrď <b>Pridať</b>. Pri prvom skenovaní povoľ fotoaparát.</li>
-    </ol>
+    <ol class="steps" data-install-steps></ol>
   </dialog>
 
   <div id="toasts" class="toasts" aria-live="polite"></div>

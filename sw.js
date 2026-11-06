@@ -3,7 +3,7 @@
 // • JS/CSS/fonty: z cache AKTUÁLNEJ verzie; nová verzia = nový názov cache → staré súbory sa zmažú
 // • API Supabase a iné domény sa NIKDY necachujú
 // • nová verzia sa aktivuje po potvrdení používateľom (banner „Obnoviť teraz“) alebo po zavretí všetkých kariet
-const VERSION = '1.0.6';
+const VERSION = '1.0.7';
 const CACHE = `regal-${VERSION}`;
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',

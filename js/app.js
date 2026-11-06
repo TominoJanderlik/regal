@@ -153,8 +153,14 @@ function bindStatic() {
   bindSetup();
   bindSettingsFiles();
 
-  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; });
-  window.addEventListener('appinstalled', () => { deferredInstall = null; toast('Regál je nainštalovaný.'); });
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; updateInstallBar(); });
+  window.addEventListener('appinstalled', () => { deferredInstall = null; updateInstallBar(); toast('Regál je nainštalovaný – nájdeš ho na ploche.'); });
+  $('[data-install]').addEventListener('click', () => installApp());
+  $('[data-install-close]').addEventListener('click', () => {
+    try { localStorage.setItem('regal.installDismissed', String(Date.now())); } catch { /* nevadí */ }
+    updateInstallBar();
+  });
+  updateInstallBar();
 }
 
 // ======================================================================= dáta → UI
@@ -772,8 +778,7 @@ async function openSettings() {
       catch { toast('Vzor nie je platný regulárny výraz.', 'error'); }
     }
     if (a === 'install') {
-      if (deferredInstall) { deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; }
-      else $('#ios-dialog').showModal();
+      d.close(); installApp();
     }
     if (a === 'update') checkForUpdate(true);
     if (a === 'setup') { d.close(); openSetup(); }
@@ -924,6 +929,38 @@ function endCalibration() {
   map.setMode('view');
   $('#calib-bar').hidden = true;
   renderAll();
+}
+
+// ======================================================================= inštalácia na plochu
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+function updateInstallBar() {
+  const dismissed = Number(localStorage.getItem('regal.installDismissed') || 0);
+  const recentlyDismissed = Date.now() - dismissed < 7 * 24 * 3600 * 1000;
+  $('#install-bar').hidden = isStandalone() || recentlyDismissed;
+}
+
+async function installApp() {
+  if (deferredInstall) {
+    // Android / Chrome / Edge: systémové okno inštalácie
+    deferredInstall.prompt();
+    const choice = await deferredInstall.userChoice.catch(() => null);
+    deferredInstall = null;
+    if (choice?.outcome === 'accepted') $('#install-bar').hidden = true;
+    return;
+  }
+  const ua = navigator.userAgent;
+  const steps = isIos()
+    ? (/CriOS|FxiOS|EdgiOS/.test(ua)
+      ? ['Na iPhone sa dá pridať na plochu iba zo <b>Safari</b>. Skopíruj adresu stránky a otvor ju v Safari.', 'V Safari ťukni na <b>Zdieľať</b> (štvorček so šípkou hore).', 'Vyber <b>Pridať na plochu</b> a potvrď <b>Pridať</b>.']
+      : ['Ťukni na tlačidlo <b>Zdieľať</b> (štvorček so šípkou hore) dolu alebo hore na lište Safari.', 'Zroluj nižšie a vyber <b>Pridať na plochu</b>.', 'Potvrď <b>Pridať</b>. Ikona Regál sa objaví na ploche.'])
+    : /android/i.test(ua)
+      ? ['Ťukni na <b>⋮</b> vpravo hore v prehliadači.', 'Vyber <b>Inštalovať aplikáciu</b> alebo <b>Pridať na plochu</b>.', 'Potvrď <b>Inštalovať</b>. Ikona Regál sa objaví na ploche.']
+      : ['V Chrome alebo Edge klikni na ikonu <b>inštalácie</b> vpravo v adresnom riadku (monitor so šípkou),', 'alebo otvor menu <b>⋮</b> → <b>Uložiť a zdieľať</b> → <b>Inštalovať stránku ako aplikáciu</b>.', 'Potvrď <b>Inštalovať</b>.'];
+  $('[data-install-steps]').innerHTML = steps.map((s) => `<li>${s}</li>`).join('');
+  $('#ios-title').textContent = 'Pridať Regál na plochu';
+  $('#ios-dialog').showModal();
 }
 
 // ======================================================================= hlášky

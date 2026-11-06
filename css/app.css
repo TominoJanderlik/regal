@@ -491,7 +491,8 @@ dialog::backdrop { background: rgba(10, 16, 32, .55); }
 /* ------------------------------------------------------------ mobil */
 @media (max-width: 899px) {
   :root { --top-h: 112px; --nav-h: 68px; }
-  .top { grid-template-columns: 1fr auto; grid-template-areas: 'brand actions' 'search search'; gap: 8px 10px; padding-top: 8px; }
+  .top { grid-template-columns: 1fr auto; grid-template-areas: 'brand actions' 'search search' 'install install'; gap: 8px 10px; padding-top: 8px; }
+  .install-bar { grid-area: install; }
   .brand { grid-area: brand; font-size: 1.3rem; }
   .search { grid-area: search; max-width: none; }
   .top-actions { grid-area: actions; }
@@ -613,3 +614,16 @@ dialog::backdrop { background: rgba(10, 16, 32, .55); }
 .zones-only .zone-label-front { font-size: 11px; fill: #5D6F66; }
 .zones-only .zone-label-allegro { fill: var(--c-allegro); font-size: 14px; }
 .zones-only .zone-label-table { font-size: 16px; }
+
+/* ponuka inštalácie na plochu */
+/* je súčasťou hlavičky (riadok cez celú šírku) → výška mapy sa počíta správne */
+.install-bar {
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin: 0 -4px;
+  padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, .08); color: #fff; font-weight: 500; font-size: .95rem;
+}
+.install-bar > svg { color: var(--signal); }
+.install-bar .btn.primary { background: var(--signal); border-color: var(--signal); color: var(--signal-ink); }
+.install-bar .icon-btn { color: #fff; }
+.install-bar span { flex: 1; min-width: 0; }
+.install-bar .btn { flex: none; }
+@media (max-width: 899px) { .install-bar { font-size: .88rem; padding-top: 6px; padding-bottom: 6px; } }
