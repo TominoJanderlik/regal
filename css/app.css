@@ -522,7 +522,7 @@ dialog::backdrop { background: rgba(10, 16, 32, .55); }
   .legend::-webkit-scrollbar { display: none; }
   .map-tools > * { flex-shrink: 0; }
   .map-tools > .legend { flex-shrink: 1; }
-  .result { top: auto; bottom: 8px; left: 8px; right: 8px; width: auto; max-height: 62%; overflow: auto; }
+  .result { position: relative; top: auto; right: auto; width: auto; margin: 8px; max-height: none; overflow: visible; }
   .res-place .big { font-size: 2.6rem; }
   .no-photo { top: auto; bottom: 10px; left: 10px; right: 10px; max-width: none; }
   .bottom-nav {
@@ -545,7 +545,9 @@ dialog::backdrop { background: rgba(10, 16, 32, .55); }
   /* na mobile hlášky hore pod hlavičkou – nezakrývajú tlačidlá pri spodku obrazovky */
   .toasts { top: calc(var(--top-h) + env(safe-area-inset-top, 0px) + 8px); bottom: auto; }
   /* pri výbere miesta sa mapa aj panel zmestia na obrazovku bez posúvania stránky */
-  .map-panel:has(.action-bar:not([hidden])) { height: calc(100dvh - var(--top-h) - var(--nav-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+  /* mobil: výška mapy podľa tvaru mapy (schéma je nízka a široká), karta výsledku je POD mapou → mapa nie je zakrytá */
+  .map-panel { height: auto; }
+  .map-root { flex: none; height: var(--map-h, 52dvh); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -591,3 +593,23 @@ dialog::backdrop { background: rgba(10, 16, 32, .55); }
 .zones-only .zone-label { fill: var(--ink); stroke: var(--card); }
 .zones-only .zone-table.boxed { fill: color-mix(in srgb, var(--c-table) 18%, var(--card)); }
 .zones-only .zone-front.boxed { fill: color-mix(in srgb, var(--c-front) 10%, var(--card)); }
+
+/* ---------- schéma v štýle pôvodnej mapy: drevené police, stôl, prerušovaná zóna pred stolom ---------- */
+:root { --wood: #D8C1A0; --wood-edge: #9C7A55; --wood-ink: #4A3826; --schema-bg: #F4F6F1; --front-bg: #E3E8E1; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --wood: #6B5640; --wood-edge: #B08F68; --wood-ink: #F2E6D6; --schema-bg: #1B2232; --front-bg: #263040; } }
+.map-stage.zones-only { background: var(--schema-bg); border-radius: 10px; box-shadow: 0 0 0 1px var(--line), 0 6px 20px -12px rgba(22,32,58,.35); }
+.zones-only .sch-floor { fill: var(--schema-bg); }
+.zones-only .sch-grid { opacity: .12; }
+.zones-only .sector.boxed { fill: var(--wood); stroke: var(--wood-edge); stroke-width: 2.5; }
+.zones-only .sector.boxed.has { fill: var(--wood); stroke: var(--c-shelf); stroke-width: 3.5; }
+.zones-only .sector.boxed.is-found { fill: var(--signal); stroke: var(--ink); stroke-width: 3; }
+.zones-only .sector-label, .map-overlay .sector.boxed + .sector-label { font: 700 13px var(--f-sign); }
+.zones-only .sector.boxed + .sector-label { fill: var(--wood-ink); stroke: none; }
+.zones-only .zone-table.boxed { fill: var(--wood); stroke: var(--wood-edge); stroke-width: 5; }
+.zones-only .zone-front.boxed { fill: var(--front-bg); stroke: #8FA39A; stroke-width: 2; stroke-dasharray: 7 6; }
+.zones-only .zone-allegro.boxed { fill: color-mix(in srgb, var(--c-allegro) 18%, var(--card)); stroke: var(--c-allegro); stroke-width: 3; }
+.zones-only .zone.boxed.is-found { stroke: var(--signal); stroke-width: 6; stroke-dasharray: none; }
+.zones-only .zone-label { fill: var(--wood-ink); stroke: none; font: 700 14px var(--f-sign); letter-spacing: .04em; }
+.zones-only .zone-label-front { font-size: 11px; fill: #5D6F66; }
+.zones-only .zone-label-allegro { fill: var(--c-allegro); font-size: 14px; }
+.zones-only .zone-label-table { font-size: 16px; }

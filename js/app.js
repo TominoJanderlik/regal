@@ -174,6 +174,7 @@ function renderAll() {
   renderFilters();
   renderList();
   const photo = store.getPhotoUrl() || DEFAULT_PHOTO || null;
+  $('[data-toggle-photo]').hidden = !photo;   // prepínač má zmysel iba pri nahratej fotke
   map.setData({
     parcels: store.allParcels(),
     zones: store.getZones(),
@@ -181,7 +182,7 @@ function renderAll() {
     selected: state.selected,
     found: state.found,
   });
-  $('#no-photo').hidden = Boolean(photo) || Boolean(state.found) || Boolean(state.place);
+  $('#no-photo').hidden = true;   // schéma je plnohodnotná mapa, fotka je voliteľná
   renderResult();
 }
 
@@ -260,8 +261,9 @@ function showFound(p, { verify = true, verifyState = null, focus = true } = {}) 
     // na počítači je karta vpravo hore → zásielku centrujeme do voľnej časti vľavo od nej
     const card = $('#result');
     const mobile = matchMedia('(max-width: 899px)').matches;
-    const padBottom = mobile && !card.hidden ? card.offsetHeight + 12 : 0;
-    const padRight = !mobile && !card.hidden ? card.offsetWidth + 24 : 0;
+    const overlay = !card.hidden && getComputedStyle(card).position === 'absolute';
+    const padBottom = mobile && overlay ? card.offsetHeight + 12 : 0;
+    const padRight = !mobile && overlay ? card.offsetWidth + 24 : 0;
     map.focusOn(displayPoint(p, store.getZones()), p.location === 'shelf' || p.location === 'allegro' ? 2.2 : 2.8, { padBottom, padRight });
   }
   if (verify) {

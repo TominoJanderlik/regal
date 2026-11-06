@@ -45,9 +45,15 @@ export function groupSectors(name, g) {
       ? [quadPoint(g.quad, 0, a), quadPoint(g.quad, 1, a), quadPoint(g.quad, 1, b), quadPoint(g.quad, 0, b)]
       : [quadPoint(g.quad, a, 0), quadPoint(g.quad, b, 0), quadPoint(g.quad, b, 1), quadPoint(g.quad, a, 1)];
     const idx = g.reverse ? n - i : i + 1;
-    out.push({ sector: `${name}${idx}`, group: name, poly: g.box ? bboxRect(poly) : poly });
+    out.push({ sector: `${name}${idx}`, group: name, poly: g.tile ? tileRect(poly, g.tile) : g.box ? bboxRect(poly) : poly });
   }
   return out;
+}
+
+/** Rovnako veľký štvorec (dlaždica) v strede sektora. tile = [šírka, výška] v súradniciach 0..1. */
+export function tileRect(poly, [w, h]) {
+  const [cx, cy] = centroid(poly);
+  return [[cx - w / 2, cy - h / 2], [cx + w / 2, cy - h / 2], [cx + w / 2, cy + h / 2], [cx - w / 2, cy + h / 2]];
 }
 
 /** Najmenší vodorovný obdĺžnik okolo mnohouholníka (pre úhľadné „dlaždice“ sektorov). */
@@ -94,11 +100,29 @@ export function locate(pt, zones) {
   for (const s of allSectors(zones)) {
     if (pointInPoly(pt, s.poly)) return { location: 'shelf', sector: s.sector, point: centroid(s.poly) };
   }
+  const near = nearestTile(pt, zones);
+  if (near) return { location: 'shelf', sector: near.sector, point: centroid(near.poly) };
   const g = zones.groups;
   if (g.allegro && pointInPoly(pt, g.allegro.quad)) return { location: 'allegro', sector: null, point: centroid(g.allegro.quad) };
   if (g.table && pointInPoly(pt, g.table.quad)) return { location: 'table', sector: null, point: pt };
   if (g.front && pointInPoly(pt, g.front.quad)) return { location: 'front', sector: null, point: pt };
   return null;
+}
+
+/** Pri dlaždiciach: najbližší sektor, ak je ťuknutie do 35 % veľkosti dlaždice od jej okraja. */
+function nearestTile(pt, zones) {
+  let best = null, bestD = Infinity;
+  for (const s of allSectors(zones)) {
+    const tile = zones.groups[s.group]?.tile;
+    if (!tile) continue;
+    const [cx, cy] = centroid(s.poly);
+    const dx = Math.abs(pt[0] - cx) / tile[0], dy = Math.abs(pt[1] - cy) / tile[1];
+    if (dx <= 0.85 && dy <= 0.85) {
+      const d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = s; }
+    }
+  }
+  return best;
 }
 
 export function sectorCenter(zones, sector) {

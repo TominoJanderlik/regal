@@ -6,7 +6,7 @@
 // NIKDY sem nevkladaj service_role kľúč.
 // ---------------------------------------------------------------
 
-export const APP_VERSION = '1.0.5';
+export const APP_VERSION = '1.0.6';
 
 const BUILT_IN = {
   supabaseUrl: 'https://pudvswjifctcskujrzlr.supabase.co',          // projekt balik-evidencia-zasielok
@@ -67,7 +67,8 @@ export const SECTORS = Object.entries(SHELF_GROUPS)
 
 // Fotka pracoviska dodaná s aplikáciou (police + stôl zhora + Allegro). Zóny k nej sú uložené v databáze.
 // Ak používateľ nahrá vlastnú fotku, má prednosť.
-export const DEFAULT_PHOTO = 'img/pracovisko.jpg';
+// Mapa je schéma ako v pôvodnej aplikácii; fotka sa zobrazí iba ak ju používateľ nahrá (Menu).
+export const DEFAULT_PHOTO = null;
 
 export const REQUEST_TIMEOUT_MS = 15000;
 export const SYNC_INTERVAL_MS = 25000;

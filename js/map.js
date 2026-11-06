@@ -136,12 +136,15 @@ export class MapView {
     if (!r.width || !r.height) return;
     const prev = { w: this.baseW, h: this.baseH };
     this.vw = r.width; this.vh = r.height;
+    // mobil: výšku mapy prispôsobíme tvaru (šírka / pomer strán), max. 62 % obrazovky
+    const wantH = Math.round(Math.min(Math.max(200, r.width / this.aspect + 12), window.innerHeight * 0.62));
+    if (this.root.style.getPropertyValue('--map-h') !== `${wantH}px`) this.root.style.setProperty('--map-h', `${wantH}px`);
     this.baseW = Math.min(r.width, r.height * this.aspect);
     this.baseH = this.baseW / this.aspect;
     this.stage.style.width = `${this.baseW}px`;
     this.stage.style.height = `${this.baseH}px`;
     this.overlay.setAttribute('viewBox', `0 0 ${this.baseW} ${this.baseH}`);
-    if (resetView || !this.laidOut) { this.fit(false); this.laidOut = true; }
+    if (resetView || !this.laidOut || this.s === 1) { this.fit(false); this.laidOut = true; }   // nepriblížená mapa sa vždy vycentruje
     else {
       // zachováme rovnaký výrez po zmene veľkosti
       const k = this.baseW / prev.w || 1;
@@ -253,7 +256,11 @@ export class MapView {
     const g = this.activeGroup;
     if (!this.calib?.groups[g]) return null;
     const r = this.stage.getBoundingClientRect();
-    let best = null, bestD = 30;   // px
+    // pri malej zóne zmenšíme dosah úchytov, aby sa dala chytiť aj stredom na presun
+    const q = this.calib.groups[g].quad;
+    const qx = q.map((p) => p[0] * r.width), qy = q.map((p) => p[1] * r.height);
+    const minSide = Math.min(Math.max(...qx) - Math.min(...qx), Math.max(...qy) - Math.min(...qy));
+    let best = null, bestD = Math.max(14, Math.min(30, minSide * 0.3));   // px
     for (const h of this.calibHandles(g)) {
       const d = Math.hypot(r.left + h.p[0] * r.width - cx, r.top + h.p[1] * r.height - cy);
       if (d < bestD) { bestD = d; best = h; }
@@ -399,8 +406,12 @@ export class MapView {
       if (SHELF_GROUPS[name]) continue;
       const c = centroid(grp.quad);
       o.append(shape(grp.quad, `zone zone-${name}${selArea === name ? ' is-found' : ''}${isAxisRect(grp.quad) ? ' boxed' : ''}`, 0, 12));
-      const label = svg('text', { x: c[0] * W, y: grp.quad[0][1] * H + 16, class: `zone-label zone-label-${name}`, 'text-anchor': 'middle' });
-      label.textContent = AREA_LABELS[name];
+      const ly = grp.quad[0][1] * H + (name === 'table' ? 24 : 16);
+      const label = svg('text', { x: c[0] * W, y: ly, class: `zone-label zone-label-${name}`, 'text-anchor': 'middle', 'dominant-baseline': null });
+      if (name === 'front') {
+        // úzky pás → dva riadky
+        ['Pred', 'stolom'].forEach((t, i) => { const ts = svg('tspan', { x: c[0] * W, dy: i ? '1.1em' : 0 }); ts.textContent = t; label.append(ts); });
+      } else label.textContent = AREA_LABELS[name];
       if (name !== 'allegro') o.append(label);
       else {
         const al = svg('text', { x: c[0] * W, y: c[1] * H, class: 'zone-label zone-label-allegro', 'text-anchor': 'middle', 'dominant-baseline': 'middle' });
