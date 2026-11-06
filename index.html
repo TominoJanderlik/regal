@@ -105,6 +105,23 @@
         </div>
       </div>
 
+      <div id="quick-bar" class="action-bar quick" hidden>
+        <div class="qb-head">
+          <div class="qb-title"><b data-qb-number></b><span data-qb-sub>Ťukni na miesto na mape</span></div>
+          <button type="button" class="icon-btn small" data-qb-cancel aria-label="Zrušiť pridanie">✕</button>
+        </div>
+        <div class="qb-row">
+          <div class="segmented small" role="radiogroup" aria-label="Obal">
+            <label><input type="radio" name="qb-type" value="box" checked><span>Krabica</span></label>
+            <label><input type="radio" name="qb-type" value="bag"><span>Sáčok</span></label>
+          </div>
+          <button type="button" class="btn small allegro-btn" data-qb-allegro>Allegro</button>
+          <button type="button" class="btn small" data-qb-last hidden></button>
+          <button type="button" class="btn small ghost" data-qb-note-toggle>+ Poznámka</button>
+        </div>
+        <input class="qb-note" data-qb-note maxlength="500" placeholder="Poznámka (nepovinné)" hidden autocomplete="off">
+      </div>
+
       <article id="result" class="result" hidden aria-live="polite"></article>
     </section>
 
@@ -141,25 +158,9 @@
         </div>
         <small class="field-msg" data-number-msg></small>
       </label>
-      <fieldset class="field">
-        <legend>Obal</legend>
-        <div class="segmented">
-          <label><input type="radio" name="package_type" value="box" checked><span>Krabica</span></label>
-          <label><input type="radio" name="package_type" value="bag"><span>Sáčok</span></label>
-        </div>
-      </fieldset>
-      <label class="switch-row">
-        <input type="checkbox" name="allegro" role="switch">
-        <span class="switch" aria-hidden="true"></span>
-        <span><b>Allegro zásielka</b><small>Uloží sa rovno na fialovú Allegro policu, bez výberu miesta.</small></span>
-      </label>
-      <label class="field">
-        <span>Poznámka <small>(nepovinné)</small></span>
-        <input name="note" maxlength="500" autocomplete="off">
-      </label>
-      <p class="hint">Miesto vyberieš ďalším krokom jedným ťuknutím na mapu. Na policiach sa sektor určí sám.</p>
+      <p class="hint">Napíš alebo vlož číslo a stlač Enter. Obal, Allegro a miesto zvolíš jedným ťuknutím na mape.</p>
       <div class="actions">
-        <button type="submit" class="btn primary wide" data-add-submit>Vybrať miesto na mape</button>
+        <button type="submit" class="btn primary wide" data-add-submit>Ďalej – ťuknúť na miesto</button>
       </div>
     </form>
   </dialog>
@@ -221,6 +222,7 @@
     <div class="scan-actions">
       <button type="button" class="btn on-dark" data-torch hidden aria-pressed="false">Svetlo</button>
       <label class="btn on-dark file-btn">Odfotiť štítok<input type="file" accept="image/*" capture="environment" data-scan-file></label>
+      <button type="button" class="btn on-dark" data-manual>Zadať číslo ručne</button>
     </div>
   </dialog>
 

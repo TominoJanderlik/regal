@@ -6,7 +6,7 @@
 // NIKDY sem nevkladaj service_role kľúč.
 // ---------------------------------------------------------------
 
-export const APP_VERSION = '1.0.7';
+export const APP_VERSION = '1.0.8';
 
 const BUILT_IN = {
   supabaseUrl: 'https://pudvswjifctcskujrzlr.supabase.co',          // projekt balik-evidencia-zasielok

@@ -6,6 +6,8 @@ import { recognize } from './tracking.js';
 
 const NATIVE_FORMATS = ['code_128', 'code_39', 'code_93', 'ean_13', 'itf', 'qr_code', 'data_matrix', 'pdf417', 'aztec', 'codabar'];
 let nativeDetector = null;
+/** Návratová hodnota skenera, keď používateľ zvolí ručné zadanie čísla. */
+export const MANUAL = Symbol('manual');
 let zxing = null;
 
 export async function engineInfo() {
@@ -122,10 +124,13 @@ export class Scanner {
     dialog.addEventListener('cancel', (e) => { e.preventDefault(); this.finish(null); });
     this.torchBtn.addEventListener('click', () => this.toggleTorch());
     this.fileInput.addEventListener('change', () => this.fromFile());
+    dialog.querySelector('[data-manual]')?.addEventListener('click', () => this.finish(MANUAL));
   }
 
-  scan(title = 'Naskenuj čiarový kód zásielky') {
+  /** ignore: čísla, ktoré sa majú preskočiť (napr. práve uložená zásielka v sérii). */
+  scan(title = 'Naskenuj čiarový kód zásielky', { ignore = [] } = {}) {
     if (this.resolve) this.finish(null);
+    this.ignore = new Set(ignore);
     this.d.querySelector('[data-scan-title]').textContent = title;
     this.setMsg('Spúšťam fotoaparát…');
     this.d.showModal();
@@ -189,6 +194,13 @@ export class Scanner {
       if (!this.lastReject || now - this.lastReject > 1500) {
         this.setMsg(`Ignorujem kód „${String(text).slice(0, 40)}“ – ${rec.reason.toLowerCase()}.`, 'warn');
         this.lastReject = now;
+      }
+      return false;
+    }
+    if (this.ignore?.has(rec.number)) {
+      if (!this.lastIgnore || now - this.lastIgnore > 1500) {
+        this.setMsg(`${rec.number} je už uložená – namier na ďalšiu zásielku.`, 'ok');
+        this.lastIgnore = now;
       }
       return false;
     }

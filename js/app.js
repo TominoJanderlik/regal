@@ -1,7 +1,7 @@
 import * as store from './store.js';
 import * as auth from './auth.js';
 import { MapView } from './map.js';
-import { Scanner, cameraPermissionState } from './scanner.js';
+import { Scanner, cameraPermissionState, MANUAL } from './scanner.js';
 import { VideoWorkshop } from './video.js';
 import { parseImportFile } from './importer.js';
 import { recognize, normalize, formatNumber, getCustomFormats, saveCustomFormats } from './tracking.js';
@@ -37,7 +37,7 @@ async function start() {
   bindStatic();
   map = new MapView($('#map'), {
     onSelect: (numbers) => onMapSelect(numbers),
-    onPlace: (pt) => onPlaceTap(pt),
+    onPlace: (pt) => (state.quick ? onQuickTap(pt) : onPlaceTap(pt)),
     onMove: (number, pt) => onMarkerMoved(number, pt),
     onZoom: (s) => { $('#zoom-level').textContent = `${Math.round(s * 100)} %`; },
     onCalibrate: () => {},
@@ -72,6 +72,7 @@ async function start() {
       e.preventDefault(); $('#q').focus(); $('#q').select();
     }
     if (e.key === 'Escape' && state.place && !document.querySelector('dialog[open]')) cancelPlacement();
+    if (e.key === 'Escape' && state.quick && !document.querySelector('dialog[open]')) $('[data-qb-cancel]').click();
   });
 }
 
@@ -109,9 +110,10 @@ function bindStatic() {
 
   $('#scan-search').addEventListener('click', async () => {
     const n = await scanner.scan('Naskenuj zásielku, ktorú hľadáš');
+    if (n === MANUAL) { q.focus(); return; }
     if (n) { q.value = n; runSearch(n); }
   });
-  $('#add-btn').addEventListener('click', () => openAdd());
+  $('#add-btn').addEventListener('click', () => (matchMedia('(max-width: 899px)').matches ? startScanSeries() : openAdd()));
   $('#menu-btn').addEventListener('click', () => openSettings());
   $('#sync-pill').addEventListener('click', onSyncPill);
   $$('[data-zoom]').forEach((b) => b.addEventListener('click', () => {
@@ -135,10 +137,7 @@ function bindStatic() {
     const a = b.dataset.nav;
     if (a === 'search') { $('#q').focus({ preventScroll: false }); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     if (a === 'list') $('.side').scrollIntoView({ behavior: 'smooth' });
-    if (a === 'scan-add') {
-      const n = await scanner.scan('Naskenuj novú zásielku');
-      if (n) openAdd(n);
-    }
+    if (a === 'scan-add') startScanSeries();
   }));
 
   // zatváranie dialógov
@@ -298,7 +297,7 @@ function clearFound(render = true) {
 
 function renderResult() {
   const box = $('#result');
-  if (state.place) { box.hidden = true; return; }
+  if (state.place || state.quick) { box.hidden = true; return; }
   const p = state.found;
   if (!p && !state.missing) { box.hidden = true; return; }
   box.hidden = false;
@@ -316,7 +315,7 @@ function renderResult() {
       </div>`;
     $('[data-res-close]', box).addEventListener('click', () => { state.missing = null; renderResult(); });
     $$('[data-pick]', box).forEach((b) => b.addEventListener('click', () => { $('#q').value = b.dataset.pick; runSearch(b.dataset.pick); }));
-    $('[data-add-this]', box)?.addEventListener('click', () => openAdd(m.number));
+    $('[data-add-this]', box)?.addEventListener('click', () => quickAdd(m.number));
     return;
   }
 
@@ -426,6 +425,7 @@ async function movePrompt(p) {
 // ======================================================================= výber miesta na mape
 function requestPlacement(label, { allowAllegro = false } = {}) {
   if (state.place) state.place.resolve(null);
+  if (state.quick) closeQuickBar();
   return new Promise((resolve) => {
     state.place = { label, resolve, preview: null, allowAllegro };
     map.setMode('place');
@@ -481,19 +481,22 @@ function bindPlaceBar() {
   });
 }
 
-// ======================================================================= pridanie
+// ======================================================================= pridanie (rýchly postup)
+// Postup: naskenuj / napíš číslo → ťukni na miesto na mape → hotovo (uloží sa hneď, bez potvrdzovania).
+// Pri skenovaní sa po uložení skener sám otvorí na ďalšiu zásielku (sériové pridávanie).
 let addNeedsConfirm = null;
+const LAST_KEY = 'regal.lastPlace.v1';
+
 function openAdd(prefill = '') {
   const d = $('#add-dialog');
   const f = $('#add-form');
-  f.reset();                         // „Krabica“ je predvolene zaškrtnutá
+  f.reset();
   f.number.value = prefill ? normalize(prefill) : '';
   addNeedsConfirm = null;
   setMsg($('[data-number-msg]'), '');
-  updateAddSubmit();
   d.showModal();
   if (prefill) validateAddNumber();
-  setTimeout(() => (prefill ? f.package_type[0] : f.number).focus({ preventScroll: true }), 50);
+  setTimeout(() => f.number.focus({ preventScroll: true }), 50);
 }
 
 function setMsg(el, text, kind = '') { el.textContent = text; el.dataset.kind = kind; }
@@ -505,61 +508,178 @@ function validateAddNumber() {
   const rec = recognize(raw, { strict: false });
   if (!rec.ok) { setMsg($('[data-number-msg]'), rec.reason, 'error'); return null; }
   const ex = store.getParcel(rec.number);
-  if (ex) setMsg($('[data-number-msg]'), `Už je v evidencii (${locText(ex)}). Uložením ju presunieš.`, 'warn');
-  else if (rec.needsConfirm) setMsg($('[data-number-msg]'), 'Neznámy formát čísla – skontroluj ho. Pri uložení ho potvrdíš.', 'warn');
+  if (ex) setMsg($('[data-number-msg]'), `Už je v evidencii (${locText(ex)}). Ďalším krokom ju presunieš.`, 'warn');
+  else if (rec.needsConfirm) setMsg($('[data-number-msg]'), 'Neznámy formát čísla – skontroluj ho. Potvrdíš ho stlačením Enter ešte raz.', 'warn');
   else setMsg($('[data-number-msg]'), rec.carrier ? `Rozpoznané: ${rec.carrier}` : '', 'ok');
   return rec;
-}
-
-function updateAddSubmit() {
-  const f = $('#add-form');
-  $('[data-add-submit]').textContent = f.allegro.checked ? 'Uložiť na Allegro policu' : 'Vybrať miesto na mape';
 }
 
 function bindAddForm() {
   const f = $('#add-form');
   f.number.addEventListener('input', () => { addNeedsConfirm = null; validateAddNumber(); });
-  f.number.addEventListener('paste', () => setTimeout(validateAddNumber, 0));
-  f.allegro.addEventListener('change', updateAddSubmit);
   $('[data-scan-add]').addEventListener('click', async () => {
-    const d = $('#add-dialog');
-    d.close();
-    const n = await scanner.scan('Naskenuj novú zásielku');
-    d.showModal();
-    if (n) { f.number.value = n; validateAddNumber(); f.package_type[0].focus({ preventScroll: true }); }
+    $('#add-dialog').close();
+    startScanSeries();
   });
-  f.addEventListener('submit', async (e) => {
+  f.addEventListener('submit', (e) => {
     e.preventDefault();
     const rec = validateAddNumber();
     if (!rec) { f.number.focus(); if (!f.number.value.trim()) setMsg($('[data-number-msg]'), 'Zadaj alebo naskenuj číslo zásielky.', 'error'); return; }
     if (rec.needsConfirm && addNeedsConfirm !== rec.number) {
       addNeedsConfirm = rec.number;
-      setMsg($('[data-number-msg]'), `Číslo ${rec.number} nemá známy formát. Ak je správne, stlač tlačidlo ešte raz.`, 'warn');
+      setMsg($('[data-number-msg]'), `Číslo ${rec.number} nemá známy formát. Ak je správne, stlač Enter ešte raz.`, 'warn');
       return;
     }
-    const data = {
-      tracking_number: rec.number,
-      package_type: f.package_type.value || 'box',   // predvolená hodnota sa uloží vždy
-      note: f.note.value,
-    };
     $('#add-dialog').close();
-    if (f.allegro.checked) {
-      const saved = await store.saveParcel({ ...data, location: 'allegro', sector: null, x: null, y: null });
-      afterSave(saved);
-      return;
-    }
-    const loc = await requestPlacement(rec.number, { allowAllegro: false });
-    if (!loc) { toast('Pridanie zrušené – zásielka nebola uložená.'); return; }
-    const saved = await store.saveParcel({ ...data, ...loc });
-    afterSave(saved);
+    quickAdd(rec.number);
+  });
+  bindQuickBar();
+}
+
+/** Sériové skenovanie: skener → miesto → skener → … kým ho používateľ nezavrie. */
+async function startScanSeries() {
+  state.series = { count: 0 };
+  scanNextInSeries();
+}
+
+async function scanNextInSeries() {
+  if (!state.series) return;
+  const c = state.series.count;
+  const n = await scanner.scan(c ? `Ďalšia zásielka · uložené ${c}` : 'Naskenuj zásielku', { ignore: state.series.saved || [] });
+  if (n === MANUAL) { state.series = null; openAdd(); return; }
+  if (!n) {
+    if (c) toast(`Hotovo – pridané zásielky: ${c}`);
+    state.series = null;
+    return;
+  }
+  quickAdd(n, { fromScan: true });
+}
+
+function lastPlace() {
+  try { return JSON.parse(localStorage.getItem(LAST_KEY) || 'null'); } catch { return null; }
+}
+
+function quickAdd(number, { fromScan = false } = {}) {
+  if (state.place) finishPlacement(null);
+  const existing = store.getParcel(number);
+  state.quick = { number, fromScan, existing };
+  const bar = $('#quick-bar');
+  $('[data-qb-number]', bar).textContent = formatNumber(number);
+  $('[data-qb-sub]', bar).textContent = existing
+    ? `Už je v evidencii (${locText(existing)}) – ťukni na nové miesto`
+    : 'Ťukni na miesto na mape';
+  bar.querySelector(`input[name="qb-type"][value="${existing?.package_type || 'box'}"]`).checked = true;
+  const note = $('[data-qb-note]', bar);
+  note.value = existing?.note || '';
+  note.hidden = !note.value;
+  const last = lastPlace();
+  const lastBtn = $('[data-qb-last]', bar);
+  lastBtn.hidden = !last;
+  if (last) lastBtn.textContent = `Ako minule: ${last.location === 'shelf' ? last.sector : LOCATIONS[last.location].short}`;
+  bar.hidden = false;
+  clearFound(false);
+  map.setMode('place');
+  renderAll();
+  map.fit();
+}
+
+function quickData() {
+  const bar = $('#quick-bar');
+  return {
+    tracking_number: state.quick.number,
+    package_type: bar.querySelector('input[name="qb-type"]:checked')?.value || 'box',   // predvolená „Krabica“
+    note: $('[data-qb-note]', bar).value,
+  };
+}
+
+async function quickSave(loc) {
+  const q = state.quick;
+  if (!q) return;
+  const before = q.existing ? { ...q.existing } : null;
+  const saved = await store.saveParcel({ ...quickData(), ...loc });
+  try { localStorage.setItem(LAST_KEY, JSON.stringify({ location: saved.location, sector: saved.sector, x: saved.x, y: saved.y })); } catch { /* nevadí */ }
+  closeQuickBar();
+  if (state.series) { state.series.count++; (state.series.saved ||= []).push(saved.tracking_number); }
+  state.selected = saved.tracking_number;
+  renderAll();
+  toast(`Uložené: ${formatNumber(saved.tracking_number)} · ${locText(saved)}`, '', {
+    label: 'Späť',
+    fn: async () => {
+      if (before) {
+        const { _pending, _verified_at, server_updated_at, ...rest } = before;
+        await store.saveParcel({ ...rest });
+      } else {
+        await store.releaseParcel(saved.tracking_number);
+      }
+      if (state.series && state.series.count) state.series.count--;
+      toast('Vrátené späť.');
+    },
+  });
+  if (q.fromScan && state.series) setTimeout(scanNextInSeries, 350);   // ďalšia zásielka v sérii
+  else showFound(saved, { verify: false, verifyState: 'pending', focus: false });
+}
+
+function closeQuickBar() {
+  state.quick = null;
+  $('#quick-bar').hidden = true;
+  if (map.mode === 'place' && !state.place) map.setMode('view');
+}
+
+function onQuickTap(pt) {
+  const loc = locate(pt, store.getZones());
+  const sub = $('[data-qb-sub]');
+  if (!loc) { sub.textContent = 'Mimo zón – ťukni na policu, stôl alebo priestor pred stolom.'; sub.dataset.kind = 'warn'; return; }
+  sub.dataset.kind = '';
+  quickSave({ location: loc.location, sector: loc.sector, x: loc.point[0], y: loc.point[1] });
+}
+
+function bindQuickBar() {
+  const bar = $('#quick-bar');
+  $('[data-qb-cancel]', bar).addEventListener('click', () => {
+    const series = state.series;
+    closeQuickBar();
+    renderAll();
+    toast('Zásielka nebola uložená.');
+    if (series) { state.series = series; setTimeout(scanNextInSeries, 200); }
+  });
+  $('[data-qb-allegro]', bar).addEventListener('click', () => quickSave({ location: 'allegro', sector: null, x: null, y: null }));
+  $('[data-qb-last]', bar).addEventListener('click', () => {
+    const l = lastPlace();
+    if (!l) return;
+    // na stole / pred stolom kúsok vedľa, aby sa body neprekrývali
+    const jitter = l.location === 'table' || l.location === 'front' ? 0.025 : 0;
+    quickSave({ ...l, x: l.x == null ? null : Math.min(0.99, l.x + jitter), y: l.y });
+  });
+  $('[data-qb-note-toggle]', bar).addEventListener('click', () => {
+    const n = $('[data-qb-note]', bar);
+    n.hidden = false; n.focus();
   });
 }
 
 function afterSave(saved) {
-  // bez skoku stránky: iba označíme zásielku na mape a ukážeme kartu
   showFound(saved, { verify: false, verifyState: 'pending', focus: false });
-  toast(`Uložené: ${formatNumber(saved.tracking_number)} · ${locText(saved)}`, '', { label: 'Pridať ďalšiu', fn: () => openAdd() });
 }
+
+// rýchle pridanie aj ručnou čítačkou čiarových kódov (USB/Bluetooth „klávesnica“) mimo políčok:
+// rýchly sled znakov ukončený Enterom → existujúca zásielka sa nájde, nová sa začne pridávať
+let wedge = { buf: '', last: 0 };
+document.addEventListener('keydown', (e) => {
+  if (isTyping(e.target) || document.querySelector('dialog[open]') || e.ctrlKey || e.metaKey || e.altKey) return;
+  const now = performance.now();
+  if (now - wedge.last > 80) wedge.buf = '';
+  wedge.last = now;
+  if (e.key === 'Enter') {
+    const raw = wedge.buf; wedge.buf = '';
+    if (raw.length < 6) return;
+    const rec = recognize(raw, { strict: true });
+    if (!rec.ok) { toast(`Načítaný kód nie je číslo zásielky (${raw.slice(0, 30)}).`, 'error'); return; }
+    e.preventDefault();
+    if (store.getParcel(rec.number)) { $('#q').value = rec.number; runSearch(rec.number); }
+    else quickAdd(rec.number);
+    return;
+  }
+  if (e.key.length === 1) wedge.buf += e.key;
+});
 
 // ======================================================================= úprava
 function openEdit(p) {

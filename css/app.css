@@ -627,3 +627,20 @@ dialog::backdrop { background: rgba(10, 16, 32, .55); }
 .install-bar span { flex: 1; min-width: 0; }
 .install-bar .btn { flex: none; }
 @media (max-width: 899px) { .install-bar { font-size: .88rem; padding-top: 6px; padding-bottom: 6px; } }
+
+/* rýchle pridávanie – panel pod mapou */
+.action-bar.quick { display: grid; gap: 10px; }
+.qb-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.qb-title { display: grid; gap: 2px; min-width: 0; }
+.qb-title b { font: 700 1.25rem var(--f-sign); letter-spacing: .03em; color: var(--signal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qb-title span { font-size: .92rem; color: #DDE3EE; }
+.qb-title span[data-kind="warn"] { color: var(--signal); font-weight: 600; }
+.quick .icon-btn { color: #fff; }
+.qb-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.segmented.small { border-color: rgba(255,255,255,.35); border-radius: 10px; }
+.segmented.small span { height: 38px; padding: 0 14px; font-size: .95rem; }
+.quick .segmented label + label span { border-left-color: rgba(255,255,255,.35); }
+.quick .segmented input:checked + span { background: #fff; color: var(--ink); }
+.quick .allegro-btn { background: var(--c-allegro) !important; border-color: var(--c-allegro) !important; color: #fff !important; }
+.qb-note { height: 40px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,.35); background: rgba(255,255,255,.08); color: #fff; padding: 0 12px; }
+.qb-note::placeholder { color: #AEB7CB; }
