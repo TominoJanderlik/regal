@@ -16,9 +16,8 @@ Inštalácia (raz, cca 2 minúty)
 
 Nastavenie (raz)
   1. Klikni na ikonu Regál → prihlás sa tým istým e-mailom a heslom ako v aplikácii Regál.
-  2. Otvor stránku Balíkova (Výdaj zákazníkovi), klikni na ikonu Regál
-     → „Zapnúť Regál na tejto stránke“ → potvrď povolenie.
-     Rozšírenie potom číta iba túto stránku, žiadne iné.
+  2. Na Balíkove (ps.sps-sro.sk) je rozšírenie zapnuté automaticky – nič netreba zapínať.
+     Iné stránky rozšírenie nečíta.
 
 Používanie
   Zadaj PIN v Balíkove → klikni „Zobraziť informácie o zásielke“ → vpravo dole sa ukáže miesto.

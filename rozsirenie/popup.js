@@ -12,10 +12,14 @@ async function refresh() {
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   try { origin = new URL(tab.url).origin; } catch { origin = null; }
   const web = origin && /^https?:/.test(origin);
-  $('#site').textContent = web ? origin.replace(/^https?:\/\//, '') : 'Táto stránka sa nedá použiť.';
-  const on = web && st.sites?.includes(origin);
+  $('#site').textContent = web ? origin.replace(/^https?:\/\//, '') : 'Adresu tejto stránky rozšírenie nevidí – klikni na ikonu Regál priamo na stránke.';
+  // Balíkovo (ps.sps-sro.sk) je zapnuté natrvalo priamo v rozšírení
+  const builtin = (chrome.runtime.getManifest().content_scripts || []).flatMap((c) => c.matches).map((m) => m.replace(/\/\*$/, ''));
+  const isBuiltin = web && builtin.includes(origin);
+  const on = web && (isBuiltin || st.sites?.includes(origin));
   $('#enable').hidden = !web || on;
-  $('#disable').hidden = !on;
+  $('#disable').hidden = !on || isBuiltin;
+  if (isBuiltin) { $('#site-msg').className = 'ok'; $('#site-msg').textContent = 'Balíkovo – zapnuté automaticky ✓'; }
   // diagnostika: beží skript na tejto karte a vidí číslo zásielky?
   $('#diag').textContent = '';
   if (on && tab?.id) {

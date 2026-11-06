@@ -295,9 +295,14 @@
   setInterval(() => { if (document.visibilityState === 'visible') { const n = findNumber(); if (n) lookup(n); } }, 1500);
   check();
   // v hlavnom okne ukážeme malý pruh „Regál · čakám na číslo zásielky“ – je vidieť, že rozšírenie beží
-  if (isTop && sessionStorage.getItem('regal-idle-hidden') !== '1') {
-    setTimeout(() => { if (!current) { card.classList.add('mini'); show(); render(); } }, 600);
+  const relevant = () => /shipment-delivery|vydaj|delivery/i.test(location.pathname) || findLabels().length > 0;
+  function showIdle() {
+    if (!isTop || current || host.isConnected || sessionStorage.getItem('regal-idle-hidden') === '1') return;
+    if (!relevant()) return;
+    card.classList.add('mini'); show(); render();
   }
+  setTimeout(showIdle, 600);
+  setInterval(showIdle, 2000);   // aplikácia Balíkova mení stránky bez načítania (SPA)
 
   // okno rozšírenia sa môže opýtať, či tu skript beží a čo našiel
   chrome.runtime.onMessage.addListener((msg, _s, reply) => {
