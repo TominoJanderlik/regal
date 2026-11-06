@@ -518,7 +518,10 @@ dialog::backdrop { background: rgba(10, 16, 32, .55); }
   .map-panel { height: min(62dvh, 620px); }
   .side { border-left: 0; border-top: 1px solid var(--line); }
   .plist { overflow: visible; }
-  .legend { gap: 8px; font-size: .78rem; flex-wrap: nowrap; white-space: nowrap; }
+  .legend { gap: 8px; font-size: .78rem; flex-wrap: nowrap; white-space: nowrap; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .legend::-webkit-scrollbar { display: none; }
+  .map-tools > * { flex-shrink: 0; }
+  .map-tools > .legend { flex-shrink: 1; }
   .result { top: auto; bottom: 8px; left: 8px; right: 8px; width: auto; max-height: 62%; overflow: auto; }
   .res-place .big { font-size: 2.6rem; }
   .no-photo { top: auto; bottom: 10px; left: 10px; right: 10px; max-width: none; }
@@ -570,3 +573,21 @@ dialog::backdrop { background: rgba(10, 16, 32, .55); }
 .map-tools .edit-zones { margin-left: auto; min-height: 34px; padding: 0 10px; }
 .map-tools .edit-zones svg { width: 18px; height: 18px; }
 @media (max-width: 899px) { .map-tools .edit-zones span { display: none; } .map-tools .edit-zones { width: 36px; padding: 0; } }
+
+/* prepínač fotky */
+.map-tools .toggle-photo { margin-left: auto; min-height: 34px; padding: 0 10px; }
+.map-tools .toggle-photo + .edit-zones { margin-left: 0; }
+.map-tools .toggle-photo svg { width: 18px; height: 18px; }
+.map-tools .toggle-photo[aria-pressed="false"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+@media (max-width: 899px) { .map-tools .toggle-photo span { display: none; } .map-tools .toggle-photo { width: 36px; padding: 0; } }
+
+/* „iba zóny“ – čistý podklad, výrazné dlaždice */
+.map-stage.zones-only { background: var(--card); border-radius: 6px; box-shadow: 0 0 0 1px var(--line); }
+.zones-only .sch-block { stroke: none; fill: none; }
+.zones-only .sch-grid { opacity: .35; }
+.zones-only .sector.boxed { fill: color-mix(in srgb, var(--c-shelf) 10%, var(--card)); stroke: var(--c-shelf); }
+.zones-only .sector.boxed.has { fill: color-mix(in srgb, var(--c-shelf) 26%, var(--card)); }
+.zones-only .sector.boxed.is-found { fill: var(--signal); stroke: var(--ink); }
+.zones-only .zone-label { fill: var(--ink); stroke: var(--card); }
+.zones-only .zone-table.boxed { fill: color-mix(in srgb, var(--c-table) 18%, var(--card)); }
+.zones-only .zone-front.boxed { fill: color-mix(in srgb, var(--c-front) 10%, var(--card)); }

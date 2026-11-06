@@ -96,8 +96,9 @@ export class MapView {
     const photoChanged = 'photoUrl' in patch && patch.photoUrl !== this.data.photoUrl;
     Object.assign(this.data, patch);
     if (photoChanged) {
-      if (this.data.photoUrl) { this.bg.src = this.data.photoUrl; this.bg.hidden = false; this.schematic.style.display = 'none'; }
-      else { this.bg.removeAttribute('src'); this.bg.hidden = true; this.schematic.style.display = ''; this.aspect = SCHEMATIC_SIZE.width / SCHEMATIC_SIZE.height; this.layout(true); }
+      if (this.data.photoUrl) { this.bg.src = this.data.photoUrl; }
+      else { this.bg.removeAttribute('src'); this.aspect = SCHEMATIC_SIZE.width / SCHEMATIC_SIZE.height; this.layout(true); }
+      this.applyPhotoVisibility();
     }
     this.render();
   }
@@ -109,6 +110,20 @@ export class MapView {
     if (mode === 'calibrate') { this.calib = structuredClone(opts.zones); this.activeGroup = opts.active || 'A'; }
     else { this.calib = null; }
     this.render();
+  }
+
+  /** Fotku možno skryť – zostanú iba zóny na čistom podklade (rozmery mapy sa nemenia). */
+  setPhotoVisible(visible) {
+    this.photoHidden = !visible;
+    this.applyPhotoVisibility();
+    this.render();
+  }
+
+  applyPhotoVisibility() {
+    const show = Boolean(this.data.photoUrl) && !this.photoHidden;
+    this.bg.hidden = !show;
+    this.schematic.style.display = show ? 'none' : '';
+    this.stage.classList.toggle('zones-only', !show);
   }
 
   setPreview(p) { this.preview = p; this.renderMarkers(); }
@@ -343,7 +358,7 @@ export class MapView {
   zonesForDraw() { return this.calib || this.data.zones; }
 
   renderSchematic() {
-    if (this.data.photoUrl) return;
+    if (this.data.photoUrl && !this.photoHidden) return;
     const z = this.zonesForDraw();
     if (!z) return;
     const W = SCHEMATIC_SIZE.width, H = SCHEMATIC_SIZE.height;

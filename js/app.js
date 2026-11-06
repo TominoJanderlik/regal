@@ -59,6 +59,7 @@ async function start() {
   auth.onSessionChange(() => { renderSync(store.getStatus()); store.requestSync(0); });
 
   renderAll();
+  state.initPhoto?.();
   renderSync(store.getStatus());
 
   if (!getConfig().supabaseUrl) openSetup();
@@ -118,6 +119,16 @@ function bindStatic() {
     if (z === 'in') map.zoomBy(1.5); else if (z === 'out') map.zoomBy(1 / 1.5); else map.fit();
   }));
   $('[data-open-photo]').addEventListener('click', () => pickPhoto());
+  // prepínač fotky: zapamätá sa v zariadení
+  const photoBtn = $('[data-toggle-photo]');
+  const setPhoto = (on) => {
+    map.setPhotoVisible(on);
+    photoBtn.setAttribute('aria-pressed', String(on));
+    photoBtn.querySelector('span').textContent = on ? 'Fotka' : 'Iba zóny';
+    try { localStorage.setItem('regal.showPhoto', on ? '1' : '0'); } catch { /* nevadí */ }
+  };
+  photoBtn.addEventListener('click', () => setPhoto(photoBtn.getAttribute('aria-pressed') !== 'true'));
+  state.initPhoto = () => setPhoto(localStorage.getItem('regal.showPhoto') !== '0');
   $('[data-edit-zones]').addEventListener('click', () => { if (state.place) cancelPlacement(); startCalibration(state.calibGroup === 'A' ? 'table' : state.calibGroup); });
 
   $$('.bottom-nav [data-nav]').forEach((b) => b.addEventListener('click', async () => {
