@@ -45,9 +45,26 @@ export function groupSectors(name, g) {
       ? [quadPoint(g.quad, 0, a), quadPoint(g.quad, 1, a), quadPoint(g.quad, 1, b), quadPoint(g.quad, 0, b)]
       : [quadPoint(g.quad, a, 0), quadPoint(g.quad, b, 0), quadPoint(g.quad, b, 1), quadPoint(g.quad, a, 1)];
     const idx = g.reverse ? n - i : i + 1;
-    out.push({ sector: `${name}${idx}`, group: name, poly });
+    out.push({ sector: `${name}${idx}`, group: name, poly: g.box ? bboxRect(poly) : poly });
   }
   return out;
+}
+
+/** Najmenší vodorovný obdĺžnik okolo mnohouholníka (pre úhľadné „dlaždice“ sektorov). */
+export function bboxRect(poly) {
+  // šírka podľa krajov, výška podľa priemeru hornej a dolnej hrany → rovnako vysoké dlaždice bez prekrývania
+  const xs = poly.map((p) => p[0]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const y0 = (poly[0][1] + poly[1][1]) / 2, y1 = (poly[2][1] + poly[3][1]) / 2;
+  return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+}
+
+/** Je mnohouholník vodorovný obdĺžnik? (kreslí sa potom ako zaoblený obdĺžnik) */
+export function isAxisRect(poly) {
+  if (poly.length !== 4) return false;
+  const e = 1e-6;
+  return Math.abs(poly[0][1] - poly[1][1]) < e && Math.abs(poly[2][1] - poly[3][1]) < e &&
+    Math.abs(poly[0][0] - poly[3][0]) < e && Math.abs(poly[1][0] - poly[2][0]) < e;
 }
 
 export function allSectors(zones) {

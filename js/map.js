@@ -1,7 +1,7 @@
 // Mapa pracoviska: fotka (alebo schéma), zóny a sektory, body zásielok.
 // Súradnice bodov sú 0..1 voči fotke → po zmene veľkosti okna, otočení mobilu
 // alebo zoome sa vždy prepočítajú cez aktuálny getBoundingClientRect().
-import { allSectors, centroid, displayPoint, AREA_LABELS, SCHEMATIC_SIZE, clamp01, pointInPoly } from './geometry.js';
+import { allSectors, centroid, displayPoint, AREA_LABELS, SCHEMATIC_SIZE, clamp01, pointInPoly, isAxisRect } from './geometry.js';
 import { SHELF_GROUPS } from './config.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -129,8 +129,8 @@ export class MapView {
   clamp() {
     const w = this.baseW * this.s, h = this.baseH * this.s;
     const minVisible = 0.35;
-    if (w <= this.vw) this.tx = Math.min(Math.max(this.tx, -w * (1 - minVisible)), this.vw - w * minVisible);
-    else this.tx = Math.min(Math.max(this.tx, this.vw - w), 0);
+    if (w <= this.vw) this.tx = Math.min(Math.max(this.tx, -w * (1 - minVisible) - (this.padRight || 0)), this.vw - w * minVisible);
+    else this.tx = Math.min(Math.max(this.tx, this.vw - w - (this.padRight || 0)), 0);   // rezerva vedľa karty výsledku
     if (h <= this.vh) this.ty = Math.min(Math.max(this.ty, -h * (1 - minVisible)), this.vh - h * minVisible);
     else this.ty = Math.min(Math.max(this.ty, this.vh - h - (this.padBottom || 0)), 0);   // rezerva pod kartou výsledku
   }
@@ -156,10 +156,11 @@ export class MapView {
   zoomBy(f) { const r = this.viewport.getBoundingClientRect(); this.zoomAt(r.left + r.width / 2, r.top + r.height / 2, this.s * f, true); }
 
   /** Priblíži a vycentruje bod (0..1). */
-  focusOn([x, y], scale = 2.6, { padBottom = 0 } = {}) {
+  focusOn([x, y], scale = 2.6, { padBottom = 0, padRight = 0 } = {}) {
     this.padBottom = padBottom;
+    this.padRight = padRight;
     this.s = Math.min(MAX_S, Math.max(MIN_S, scale));
-    this.tx = this.vw / 2 - x * this.baseW * this.s;
+    this.tx = (this.vw - padRight) / 2 - x * this.baseW * this.s;
     this.ty = (this.vh - padBottom) / 2 - y * this.baseH * this.s;
     this.clamp(); this.apply(true);
   }
@@ -311,6 +312,13 @@ export class MapView {
     if (!z) return;
     const W = this.baseW, H = this.baseH;
     const pts = (q) => q.map(([x, y]) => `${x * W},${y * H}`).join(' ');
+    // vodorovný obdĺžnik → zaoblená „dlaždica“ s malou medzerou; inak mnohouholník
+    const shape = (q, cls, inset = 0, radius = 6) => {
+      if (!isAxisRect(q)) return svg('polygon', { points: pts(q), class: cls });
+      const x = q[0][0] * W + inset, y = q[0][1] * H + inset;
+      const w = Math.max(1, (q[1][0] - q[0][0]) * W - 2 * inset), h = Math.max(1, (q[3][1] - q[0][1]) * H - 2 * inset);
+      return svg('rect', { x, y, width: w, height: h, rx: Math.min(radius, w / 4, h / 4), class: cls });
+    };
     const counts = {};
     for (const p of this.data.parcels) {
       const k = p.location === 'shelf' ? p.sector : p.location;
@@ -322,8 +330,8 @@ export class MapView {
     for (const [name, grp] of Object.entries(z.groups)) {
       if (SHELF_GROUPS[name]) continue;
       const c = centroid(grp.quad);
-      o.append(svg('polygon', { points: pts(grp.quad), class: `zone zone-${name}${selArea === name ? ' is-found' : ''}` }));
-      const label = svg('text', { x: c[0] * W, y: grp.quad[0][1] * H + 14, class: `zone-label zone-label-${name}`, 'text-anchor': 'middle' });
+      o.append(shape(grp.quad, `zone zone-${name}${selArea === name ? ' is-found' : ''}${isAxisRect(grp.quad) ? ' boxed' : ''}`, 0, 12));
+      const label = svg('text', { x: c[0] * W, y: grp.quad[0][1] * H + 16, class: `zone-label zone-label-${name}`, 'text-anchor': 'middle' });
       label.textContent = AREA_LABELS[name];
       if (name !== 'allegro') o.append(label);
       else {
@@ -335,7 +343,7 @@ export class MapView {
     for (const s of allSectors(z)) {
       const c = centroid(s.poly);
       const has = counts[s.sector] || 0;
-      o.append(svg('polygon', { points: pts(s.poly), class: `sector${has ? ' has' : ''}${selSector === s.sector ? ' is-found' : ''}` }));
+      o.append(shape(s.poly, `sector${has ? ' has' : ''}${selSector === s.sector ? ' is-found' : ''}${isAxisRect(s.poly) ? ' boxed' : ''}`, 2, 7));
       const t = svg('text', { x: c[0] * W, y: c[1] * H, class: 'sector-label', 'text-anchor': 'middle', 'dominant-baseline': 'central' });
       t.textContent = s.sector;
       o.append(t);

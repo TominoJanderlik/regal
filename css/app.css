@@ -546,3 +546,15 @@ dialog::backdrop { background: rgba(10, 16, 32, .55); }
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
   .marker-ring { animation: none; opacity: 1; scale: 1.1; }
 }
+
+/* úhľadné dlaždice sektorov a obdĺžnikové zóny na fotke */
+.sector.boxed { fill: rgba(255, 255, 255, .55); stroke: var(--c-shelf); stroke-width: 2; }
+.sector.boxed.has { fill: color-mix(in srgb, var(--c-shelf) 30%, rgba(255, 255, 255, .6)); }
+.sector.boxed.is-found { fill: color-mix(in srgb, var(--signal) 75%, transparent); stroke: var(--ink); stroke-width: 3; }
+.map-overlay .sector.boxed + .sector-label { fill: var(--ink); stroke: rgba(255, 255, 255, .9); stroke-width: 4px; font-size: 13px; }
+.zone.boxed { stroke-dasharray: none; stroke-width: 3; }
+.zone-table.boxed { fill: color-mix(in srgb, var(--c-table) 16%, transparent); stroke: var(--c-table); }
+.zone-front.boxed { fill: color-mix(in srgb, var(--c-front) 12%, transparent); stroke: var(--c-front); stroke-dasharray: 10 6; }
+.zone-allegro.boxed { fill: color-mix(in srgb, var(--c-allegro) 20%, rgba(255, 255, 255, .7)); }
+.zone.boxed.is-found { stroke: var(--signal); stroke-width: 5; }
+.zone-label-table, .zone-label-front { font-size: 15px; }

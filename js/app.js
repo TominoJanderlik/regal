@@ -245,9 +245,12 @@ function showFound(p, { verify = true, verifyState = null, focus = true } = {}) 
   renderAll();
   if (focus) {
     // na mobile karta výsledku prekrýva spodok mapy → zásielku centrujeme do viditeľnej časti nad ňou
+    // na počítači je karta vpravo hore → zásielku centrujeme do voľnej časti vľavo od nej
     const card = $('#result');
-    const pad = matchMedia('(max-width: 899px)').matches && !card.hidden ? card.offsetHeight + 12 : 0;
-    map.focusOn(displayPoint(p, store.getZones()), p.location === 'shelf' || p.location === 'allegro' ? 2.2 : 2.8, { padBottom: pad });
+    const mobile = matchMedia('(max-width: 899px)').matches;
+    const padBottom = mobile && !card.hidden ? card.offsetHeight + 12 : 0;
+    const padRight = !mobile && !card.hidden ? card.offsetWidth + 24 : 0;
+    map.focusOn(displayPoint(p, store.getZones()), p.location === 'shelf' || p.location === 'allegro' ? 2.2 : 2.8, { padBottom, padRight });
   }
   if (verify) {
     const seq = state.searchSeq;
@@ -268,6 +271,7 @@ function showFound(p, { verify = true, verifyState = null, focus = true } = {}) 
 
 function clearFound(render = true) {
   map.padBottom = 0;
+  map.padRight = 0;
   state.found = null; state.selected = null; state.verify = null;
   if (render) renderAll();
 }
