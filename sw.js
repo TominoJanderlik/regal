@@ -3,13 +3,13 @@
 // • JS/CSS/fonty: z cache AKTUÁLNEJ verzie; nová verzia = nový názov cache → staré súbory sa zmažú
 // • API Supabase a iné domény sa NIKDY necachujú
 // • nová verzia sa aktivuje po potvrdení používateľom (banner „Obnoviť teraz“) alebo po zavretí všetkých kariet
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 const CACHE = `regal-${VERSION}`;
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/api.js', 'js/auth.js', 'js/config.js', 'js/geometry.js', 'js/idb.js',
   'js/importer.js', 'js/map.js', 'js/scanner.js', 'js/store.js', 'js/tracking.js', 'js/video.js',
-  'vendor/zxing-0.21.3.min.js',
+  'vendor/zxing-0.21.3.min.js', 'img/pracovisko.jpg',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png',
   'fonts/barlow-latin-400-normal.woff2', 'fonts/barlow-latin-ext-400-normal.woff2',
   'fonts/barlow-latin-500-normal.woff2', 'fonts/barlow-latin-ext-500-normal.woff2',

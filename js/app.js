@@ -6,7 +6,7 @@ import { VideoWorkshop } from './video.js';
 import { parseImportFile } from './importer.js';
 import { recognize, normalize, formatNumber, getCustomFormats, saveCustomFormats } from './tracking.js';
 import { locate, defaultZones, displayPoint, AREA_LABELS } from './geometry.js';
-import { getConfig, saveConfig, LOCATIONS, PACKAGE_TYPES, APP_VERSION, SHELF_GROUPS } from './config.js';
+import { getConfig, saveConfig, LOCATIONS, PACKAGE_TYPES, APP_VERSION, SHELF_GROUPS, DEFAULT_PHOTO } from './config.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -161,7 +161,7 @@ function onDataChange(info) {
 function renderAll() {
   renderFilters();
   renderList();
-  const photo = store.getPhotoUrl();
+  const photo = store.getPhotoUrl() || DEFAULT_PHOTO || null;
   map.setData({
     parcels: store.allParcels(),
     zones: store.getZones(),
