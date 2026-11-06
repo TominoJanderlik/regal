@@ -25,7 +25,17 @@ Používanie
   Kliknutím na tmavý pruh okienko zbalíš/rozbalíš, krížikom ho skryješ.
   Po „Potvrdenie doručenia“ okienko pripomenie odstránenie z Regálu (s možnosťou Späť).
 
+Aktualizácia na novú verziu
+  1. Súbory z nového ZIP-u skopíruj do toho istého priečinka regal-rozsirenie (prepíš staré).
+  2. edge://extensions → pri „Regál“ klikni „Znova načítať“ (šípka v kruhu).
+  3. Obnov stránku Balíkova (F5).
+
 Ak niečo nejde
   • „Prihlás sa v rozšírení“ → klikni na ikonu Regál a prihlás sa.
-  • Okienko sa neukáže → skontroluj, že je rozšírenie na stránke zapnuté (ikona Regál), a obnov stránku (F5).
+  • Na stránke Balíkova musí byť vpravo dole tmavý pruh „Regál · čakám na číslo zásielky“.
+    Ak tam nie je: klikni na ikonu Regál → „Zapnúť Regál na tejto stránke“ → povoliť → F5.
+  • V okne rozšírenia (ikona Regál) je riadok „Beží ✓ …“ – ukazuje, či rozšírenie stránku vidí
+    a či našlo číslo zásielky. Ak ponúkne „Zapnúť aj pre vložený rám …“, klikni naň a daj F5.
+  • Ak číslo nenájde samo, napíš ho do políčka v pruhu a stlač Hľadať.
+  • Staré rozšírenie z ChatGPT vypni (edge://extensions) – číta starú tabuľku, nie Regál.
   • Po aktualizácii rozšírenia: edge://extensions → pri Regáli klikni „Znova načítať“ a obnov Balíkovo.

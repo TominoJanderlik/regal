@@ -15,36 +15,80 @@
   const text = (el) => (el?.innerText ?? el?.textContent ?? '').trim();
   const LABEL = /^č[ií]slo\s+z[aá]sielky\s*:?$/i;
 
+  const ownText = (el) => [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').replace(/\s+/g, ' ').trim();
+
+  /** Všetky výskyty platného čísla zásielky na stránke (text aj hodnoty políčok), s prvkom a polohou. */
+  function scanNumbers() {
+    const out = [];
+    const skip = (el) => !el || el.closest?.('#regal-panel-host, script, style, noscript, template');
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      const raw = n.textContent;
+      if (!raw || raw.length > 400 || !/\d/.test(raw)) continue;
+      const el = n.parentElement;
+      if (skip(el)) continue;
+      const tokens = raw.split(/[\s,;|()]+/).map(normalize).filter(Boolean);
+      const hit = tokens.find(isParcel) || (isParcel(normalize(raw)) ? normalize(raw) : null);
+      if (hit) out.push({ number: hit, el });
+    }
+    for (const inp of document.querySelectorAll('input, textarea')) {
+      if (skip(inp) || inp.type === 'password' || inp.type === 'hidden') continue;
+      const v = normalize(inp.value);
+      if (isParcel(v)) out.push({ number: v, el: inp });
+    }
+    return out;
+  }
+
+  function findLabels() {
+    const labels = [];
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+    for (let el = w.nextNode(); el && labels.length < 6; el = w.nextNode()) {
+      if (el.closest('#regal-panel-host')) continue;
+      if (LABEL.test(ownText(el)) || (el.childElementCount === 0 && LABEL.test(text(el)))) labels.push(el);
+    }
+    return labels;
+  }
+
   function candidatesNear(label) {
     const out = [];
     const push = (s) => { if (s) out.push(s); };
     push(text(label.nextElementSibling));
-    const row = label.closest('tr, li, [class*="row"], [class*="item"]') || label.parentElement;
-    if (row) push(text(row).replace(text(label), ''));
     push(text(label.parentElement?.nextElementSibling));
-    const input = row?.querySelector('input, textarea');
+    push(text(label.parentElement?.parentElement?.nextElementSibling));
+    const row = label.closest('tr') || label.parentElement?.parentElement || label.parentElement;
+    if (row) push(text(row).replace(text(label), ''));
+    const input = row?.querySelector?.('input, textarea');
     if (input?.value) push(input.value);
     return out;
   }
 
   function findNumber() {
-    const labels = [];
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
-    for (let el = walker.currentNode; el; el = walker.nextNode()) {
-      if (el.childElementCount === 0 && LABEL.test(text(el))) labels.push(el);
-      if (labels.length > 5) break;
-    }
+    const labels = findLabels();
+    // 1) hodnota pri štítku „Číslo zásielky“ (v DOM vedľa neho)
     for (const label of labels) {
       for (const raw of candidatesNear(label)) {
         const tokens = raw.split(/[\s,;|]+/).map(normalize).filter(Boolean);
         const strict = tokens.find(isParcel);
         if (strict) return strict;
-        const whole = normalize(raw);
-        if (isParcel(whole)) return whole;
         if (tokens.length === 1 && looseParcel(tokens[0])) return tokens[0];
       }
     }
-    return null;
+    const all = scanNumbers();
+    const unique = [...new Set(all.map((x) => x.number))];
+    if (!unique.length) return null;
+    // 2) číslo v tom istom riadku ako štítok (podľa polohy na obrazovke – nezávisí od štruktúry stránky)
+    for (const label of labels) {
+      const lr = label.getBoundingClientRect();
+      if (!lr.height) continue;
+      const cy = lr.top + lr.height / 2;
+      const inRow = all.filter((x) => {
+        const r = x.el.getBoundingClientRect();
+        return r.height && Math.abs(r.top + r.height / 2 - cy) <= Math.max(14, lr.height) && r.left >= lr.left;
+      });
+      if (inRow.length) return inRow[0].number;
+    }
+    // 3) na stránke je práve jedno platné číslo zásielky
+    return unique.length === 1 ? unique[0] : null;
   }
 
   // ---------------------------------------------------------------- okienko (Shadow DOM – štýly stránky ho neovplyvnia)
@@ -104,8 +148,11 @@
     card.classList.toggle('mini');
     sessionStorage.setItem('regal-mini', card.classList.contains('mini') ? '1' : '0');
   });
-  root.querySelector('[data-close]').addEventListener('click', () => { hiddenFor = current; host.remove(); });
-  if (sessionStorage.getItem('regal-mini') === '1') card.classList.add('mini');
+  root.querySelector('[data-close]').addEventListener('click', () => {
+    if (!current) sessionStorage.setItem('regal-idle-hidden', '1');
+    hiddenFor = current; host.remove();
+  });
+  const isTop = window.top === window;
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (n) => (/^SK\d[0-9A-Z]{15}$/.test(n) ? `${n.slice(0, 6)} ${n.slice(6, 12)} ${n.slice(12)}` : n.replace(/(.{4})(?=.)/g, '$1 '));
@@ -159,7 +206,19 @@
   // ---------------------------------------------------------------- vykreslenie
   const LOC = { shelf: 'Polica, sektor', table: 'Pracovný stôl', front: 'Na zemi pred stolom', allegro: 'Fialová Allegro polica' };
   function render() {
-    numEl.textContent = current ? fmt(current) : '';
+    numEl.textContent = current ? fmt(current) : 'čakám na číslo zásielky';
+    if (!current) {
+      // nečinný stav: malý pruh = rozšírenie na stránke beží; dá sa aj ručne vyhľadať
+      body.innerHTML = `<div class="msg">Po zadaní PIN v Balíkove sa tu ukáže, kde je zásielka uložená.</div>
+        <form class="row" data-manual><input data-manual-input placeholder="Číslo zásielky" style="flex:2;min-width:0;padding:8px 10px;border:1.5px solid #C3CBD6;border-radius:9px;font-size:14px">
+        <button class="btn" style="flex:1">Hľadať</button></form>`;
+      root.querySelector('[data-manual]').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const n = normalize(root.querySelector('[data-manual-input]').value);
+        if (n.length >= 5) { card.classList.remove('mini'); lookup(n, true); }
+      });
+      return;
+    }
     if (!state) { body.innerHTML = '<div class="msg">Hľadám v Regáli…</div>'; return; }
     if (!state.ok) {
       body.innerHTML = `<div class="msg ${state.auth ? 'warn' : 'err'}">${esc(state.error)}</div>
@@ -199,6 +258,7 @@
     state = null;
     if (hiddenFor === number) return;
     hiddenFor = null;
+    card.classList.remove('mini');      // nájdená zásielka sa vždy ukáže rozbalená
     show(); render();
     const r = await send({ type: 'lookup', number });
     if (current !== number) return;     // medzitým sa zobrazila iná zásielka
@@ -229,8 +289,26 @@
   // ---------------------------------------------------------------- sledovanie stránky
   let t = null;
   const check = () => { clearTimeout(t); t = setTimeout(() => { const n = findNumber(); if (n) lookup(n); }, 250); };
-  new MutationObserver(check).observe(document.body, { childList: true, subtree: true, characterData: true });
+  new MutationObserver(check).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['value'] });
+  document.addEventListener('input', check, true);
+  // hodnotu políčka môže stránka nastaviť skriptom bez udalosti → občas skontrolujeme aj tak
+  setInterval(() => { if (document.visibilityState === 'visible') { const n = findNumber(); if (n) lookup(n); } }, 1500);
   check();
+  // v hlavnom okne ukážeme malý pruh „Regál · čakám na číslo zásielky“ – je vidieť, že rozšírenie beží
+  if (isTop && sessionStorage.getItem('regal-idle-hidden') !== '1') {
+    setTimeout(() => { if (!current) { card.classList.add('mini'); show(); render(); } }, 600);
+  }
+
+  // okno rozšírenia sa môže opýtať, či tu skript beží a čo našiel
+  chrome.runtime.onMessage.addListener((msg, _s, reply) => {
+    if (msg?.type === 'ping') {
+      const labels = findLabels().length;
+      // vložené rámy z iných adries (aplikácia Balíkova môže bežať v ráme)
+      const frames = [...new Set([...document.querySelectorAll('iframe[src]')].map((f) => { try { return new URL(f.src, location.href).origin; } catch { return null; } })
+        .filter((o) => o && /^https?:/.test(o) && o !== location.origin))];
+      reply({ ok: true, top: isTop, number: current, labels, url: location.href, frames });
+    }
+  });
 
   // po „Potvrdenie doručenia“ v Balíkove pripomenieme odstránenie z Regálu
   document.addEventListener('click', (e) => {

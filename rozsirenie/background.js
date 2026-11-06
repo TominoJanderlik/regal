@@ -133,11 +133,11 @@ async function enableSite(origin, tabId) {
   const id = scriptId(origin);
   const existing = await chrome.scripting.getRegisteredContentScripts({ ids: [id] });
   if (!existing.length) {
-    await chrome.scripting.registerContentScripts([{ id, matches: [`${origin}/*`], js: ['content.js'], runAt: 'document_idle', allFrames: false, persistAcrossSessions: true }]);
+    await chrome.scripting.registerContentScripts([{ id, matches: [`${origin}/*`], js: ['content.js'], runAt: 'document_idle', allFrames: true, persistAcrossSessions: true }]);
   }
   const { sites = [] } = await chrome.storage.local.get('sites');
   if (!sites.includes(origin)) await chrome.storage.local.set({ sites: [...sites, origin] });
-  if (tabId) await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] }).catch(() => {});
+  if (tabId) await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['content.js'] }).catch(() => {});
 }
 
 async function disableSite(origin) {
@@ -146,6 +146,15 @@ async function disableSite(origin) {
   await chrome.storage.local.set({ sites: sites.filter((s) => s !== origin) });
   await chrome.permissions.remove({ origins: [`${origin}/*`] }).catch(() => {});
 }
+
+// po aktualizácii rozšírenia prenesieme nové nastavenia aj do už zapnutých stránok
+chrome.runtime.onInstalled.addListener(async () => {
+  const regs = await chrome.scripting.getRegisteredContentScripts();
+  const mine = regs.filter((r) => r.id.startsWith('regal-'));
+  if (mine.length) {
+    await chrome.scripting.updateContentScripts(mine.map((r) => ({ id: r.id, js: ['content.js'], runAt: 'document_idle', allFrames: true }))).catch(() => {});
+  }
+});
 
 // ------------------------------------------------------------------ správy
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {

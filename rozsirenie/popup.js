@@ -16,6 +16,32 @@ async function refresh() {
   const on = web && st.sites?.includes(origin);
   $('#enable').hidden = !web || on;
   $('#disable').hidden = !on;
+  // diagnostika: beží skript na tejto karte a vidí číslo zásielky?
+  $('#diag').textContent = '';
+  if (on && tab?.id) {
+    chrome.tabs.sendMessage(tab.id, { type: 'ping' }, (r) => {
+      const d = $('#diag');
+      if (chrome.runtime.lastError || !r) { d.className = 'err'; d.textContent = 'Na tejto karte zatiaľ nebeží – obnov stránku (F5).'; return; }
+      d.className = 'ok';
+      d.textContent = r.number ? `Beží ✓ · nájdené číslo ${r.number}` : `Beží ✓ · čaká na číslo zásielky${r.labels ? '' : ' (štítok „Číslo zásielky“ zatiaľ nevidím)'}`;
+      // ak je obsah stránky vo vloženom ráme z inej adresy, treba zapnúť aj ten
+      const box = $('#frames');
+      box.innerHTML = '';
+      for (const fo of r.frames || []) {
+        if (st.sites?.includes(fo)) continue;
+        const b = document.createElement('button');
+        b.textContent = `Zapnúť aj pre vložený rám ${fo.replace(/^https?:\/\//, '')}`;
+        b.style.width = '100%';
+        b.addEventListener('click', async () => {
+          if (!(await chrome.permissions.request({ origins: [`${fo}/*`] }))) return;
+          await send({ type: 'enableSite', origin: fo, tabId: tab.id });
+          $('#site-msg').className = 'ok'; $('#site-msg').textContent = 'Zapnuté. Obnov stránku (F5).';
+          refresh();
+        });
+        box.append(b);
+      }
+    });
+  }
 }
 
 $('#login-form').addEventListener('submit', async (e) => {
