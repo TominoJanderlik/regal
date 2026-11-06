@@ -1,0 +1,103 @@
+// Geometria mapy. Všetky súradnice sú v rozsahu 0..1 voči fotke (alebo schéme),
+// preto nezávisia od veľkosti obrazovky ani od zoomu.
+import { SHELF_GROUPS } from './config.js';
+
+const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+
+export const SCHEMATIC_SIZE = { width: 1600, height: 1000 };
+
+export function defaultZones() {
+  return {
+    version: 1,
+    groups: {
+      A: { quad: rect(0.04, 0.06, 0.36, 0.16), dir: 'h', reverse: false },
+      B: { quad: rect(0.04, 0.18, 0.36, 0.28), dir: 'h', reverse: false },
+      C: { quad: rect(0.04, 0.30, 0.36, 0.40), dir: 'h', reverse: false },
+      D: { quad: rect(0.40, 0.06, 0.72, 0.16), dir: 'h', reverse: false },
+      E: { quad: rect(0.40, 0.18, 0.72, 0.28), dir: 'h', reverse: false },
+      F: { quad: rect(0.40, 0.30, 0.72, 0.40), dir: 'h', reverse: false },
+      allegro: { quad: rect(0.76, 0.06, 0.96, 0.40) },
+      table: { quad: rect(0.12, 0.50, 0.70, 0.72) },
+      front: { quad: rect(0.04, 0.76, 0.96, 0.96) },
+    },
+  };
+}
+
+export const AREA_LABELS = { allegro: 'Allegro polica', table: 'Pracovný stôl', front: 'Pred stolom' };
+
+function lerp(a, b, u) { return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]; }
+
+/** Bilineárny bod v štvoruholníku (u zľava doprava, v zhora nadol). */
+export function quadPoint(q, u, v) {
+  const top = lerp(q[0], q[1], u);
+  const bottom = lerp(q[3], q[2], u);
+  return lerp(top, bottom, v);
+}
+
+/** Rozdelí skupinu políc na sektory (A1…A4) – funguje aj pre perspektívne skosenú policu. */
+export function groupSectors(name, g) {
+  const n = SHELF_GROUPS[name];
+  if (!n || !g?.quad) return [];
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const a = i / n, b = (i + 1) / n;
+    const poly = g.dir === 'v'
+      ? [quadPoint(g.quad, 0, a), quadPoint(g.quad, 1, a), quadPoint(g.quad, 1, b), quadPoint(g.quad, 0, b)]
+      : [quadPoint(g.quad, a, 0), quadPoint(g.quad, b, 0), quadPoint(g.quad, b, 1), quadPoint(g.quad, a, 1)];
+    const idx = g.reverse ? n - i : i + 1;
+    out.push({ sector: `${name}${idx}`, group: name, poly });
+  }
+  return out;
+}
+
+export function allSectors(zones) {
+  return Object.keys(SHELF_GROUPS).flatMap((k) => groupSectors(k, zones.groups[k]));
+}
+
+export function pointInPoly([x, y], poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+export function centroid(poly) {
+  // ťažisko štvoruholníka = priemer vrcholov stačí pre konvexné tvary sektorov
+  const s = poly.reduce((acc, p) => [acc[0] + p[0], acc[1] + p[1]], [0, 0]);
+  return [s[0] / poly.length, s[1] / poly.length];
+}
+
+/**
+ * Kam patrí bod? Police majú prednosť (sektor + bod v strede sektora),
+ * potom Allegro, stôl a priestor pred stolom (presný bod).
+ */
+export function locate(pt, zones) {
+  for (const s of allSectors(zones)) {
+    if (pointInPoly(pt, s.poly)) return { location: 'shelf', sector: s.sector, point: centroid(s.poly) };
+  }
+  const g = zones.groups;
+  if (g.allegro && pointInPoly(pt, g.allegro.quad)) return { location: 'allegro', sector: null, point: centroid(g.allegro.quad) };
+  if (g.table && pointInPoly(pt, g.table.quad)) return { location: 'table', sector: null, point: pt };
+  if (g.front && pointInPoly(pt, g.front.quad)) return { location: 'front', sector: null, point: pt };
+  return null;
+}
+
+export function sectorCenter(zones, sector) {
+  const s = allSectors(zones).find((z) => z.sector === sector);
+  return s ? centroid(s.poly) : null;
+}
+
+export function allegroCenter(zones) {
+  return zones.groups.allegro ? centroid(zones.groups.allegro.quad) : [0.86, 0.23];
+}
+
+/** Bod, kde sa zásielka zobrazí na mape. Polica/Allegro → stred zóny, stôl/pred stolom → uložený bod. */
+export function displayPoint(p, zones) {
+  if (p.location === 'allegro') return allegroCenter(zones);
+  if (p.location === 'shelf') return sectorCenter(zones, p.sector) || [p.x ?? 0.5, p.y ?? 0.5];
+  return [p.x ?? 0.5, p.y ?? 0.5];
+}
+
+export function clamp01(v) { return Math.min(1, Math.max(0, v)); }

@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="sk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Regál – kde je zásielka</title>
+  <meta name="description" content="Evidencia uložených zásielok: naskenuj, označ miesto, nájdi za pár sekúnd.">
+  <meta name="theme-color" content="#16203A">
+  <meta name="color-scheme" content="light dark">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Regál">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#q">Preskočiť na hľadanie</a>
+
+  <header class="top">
+    <div class="brand" aria-label="Regál">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="4" width="26" height="24" rx="3" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M3 13h26M3 21h26M16 4v24" stroke="currentColor" stroke-width="2.4"/><rect x="18.5" y="14.8" width="8" height="4.6" rx="1" fill="var(--signal)"/></svg>
+      <span>Regál</span>
+    </div>
+    <form class="search" role="search" onsubmit="return false">
+      <label for="q" class="sr-only">Číslo zásielky</label>
+      <svg class="search-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input id="q" type="search" placeholder="Hľadať číslo zásielky" autocomplete="off" autocorrect="off" spellcheck="false" autocapitalize="characters" enterkeyhint="search">
+      <button type="button" class="icon-btn" id="scan-search" aria-label="Naskenovať a nájsť zásielku" title="Naskenovať a nájsť">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7 8v8M10 8v8M12.5 8v8M15 8v8M17 8v8" stroke="currentColor" stroke-width="1.6"/></svg>
+      </button>
+    </form>
+    <div class="top-actions">
+      <button type="button" class="sync-pill" id="sync-pill" data-state="idle"><span class="dot" aria-hidden="true"></span><span class="txt">Načítavam…</span><span class="txt-short" aria-hidden="true"></span></button>
+      <button type="button" class="btn primary add-btn" id="add-btn">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <span>Pridať zásielku</span>
+      </button>
+      <button type="button" class="icon-btn" id="menu-btn" aria-label="Nastavenia a nástroje">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main class="layout">
+    <section class="map-panel" aria-label="Mapa pracoviska">
+      <div class="map-tools">
+        <ul class="legend" aria-label="Legenda">
+          <li><i class="lg lg-table"></i>Stôl</li>
+          <li><i class="lg lg-front"></i>Pred stolom</li>
+          <li><i class="lg lg-shelf"></i>Police</li>
+          <li><i class="lg lg-allegro"></i>Allegro</li>
+        </ul>
+        <div class="zoom" role="group" aria-label="Priblíženie">
+          <button type="button" class="icon-btn small" data-zoom="out" aria-label="Oddialiť">−</button>
+          <span id="zoom-level" aria-live="off">100 %</span>
+          <button type="button" class="icon-btn small" data-zoom="in" aria-label="Priblížiť">+</button>
+          <button type="button" class="icon-btn small" data-zoom="fit" aria-label="Zobraziť celé pracovisko">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="map" class="map-root"></div>
+      <div id="no-photo" class="no-photo" hidden>
+        Zobrazuje sa schéma. <button type="button" class="link" data-open-photo>Nahraj fotku pracoviska</button>, aby mapa sedela s realitou.
+      </div>
+
+      <div id="place-bar" class="action-bar" hidden>
+        <p class="ab-text" data-place-text></p>
+        <div class="ab-buttons">
+          <button type="button" class="btn" data-place-cancel>Zrušiť</button>
+          <button type="button" class="btn primary" data-place-confirm disabled>Potvrdiť miesto</button>
+        </div>
+      </div>
+
+      <div id="calib-bar" class="action-bar calib" hidden>
+        <p class="ab-text">Vyber zónu a potiahni jej rohy na správne miesto na fotke. Celú zónu posunieš potiahnutím jej vnútra.</p>
+        <div class="calib-groups" data-calib-groups></div>
+        <div class="ab-buttons">
+          <button type="button" class="btn small" data-calib-dir>Sektory vedľa seba</button>
+          <button type="button" class="btn small" data-calib-reverse>Poradie 1→4</button>
+          <button type="button" class="btn small ghost" data-calib-reset>Predvolené</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn" data-calib-cancel>Zrušiť</button>
+          <button type="button" class="btn primary" data-calib-save>Uložiť zóny</button>
+        </div>
+      </div>
+
+      <article id="result" class="result" hidden aria-live="polite"></article>
+    </section>
+
+    <aside class="side" aria-label="Zoznam zásielok">
+      <div class="side-head">
+        <h2>Uložené zásielky</h2>
+        <div class="filters" role="group" aria-label="Filtrovať podľa miesta" id="filters"></div>
+      </div>
+      <ul id="list" class="plist"></ul>
+    </aside>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Rýchle akcie">
+    <button type="button" data-nav="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Hľadať</button>
+    <button type="button" data-nav="scan-add" class="nav-primary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>Skenovať a pridať</button>
+    <button type="button" data-nav="list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>Zoznam</button>
+  </nav>
+
+  <!-- Pridanie zásielky -->
+  <dialog id="add-dialog" class="sheet" aria-labelledby="add-title">
+    <form method="dialog" id="add-form" novalidate>
+      <header class="sheet-head">
+        <h2 id="add-title">Pridať zásielku</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Zavrieť">✕</button>
+      </header>
+      <label class="field">
+        <span>Číslo zásielky</span>
+        <div class="input-row">
+          <input name="number" id="add-number" class="big-input" autocomplete="off" autocorrect="off" spellcheck="false" autocapitalize="characters" inputmode="text" required>
+          <button type="button" class="btn" data-scan-add>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7 8v8M10 8v8M12.5 8v8M15 8v8M17 8v8" stroke="currentColor" stroke-width="1.6"/></svg>
+            Skenovať
+          </button>
+        </div>
+        <small class="field-msg" data-number-msg></small>
+      </label>
+      <fieldset class="field">
+        <legend>Obal</legend>
+        <div class="segmented">
+          <label><input type="radio" name="package_type" value="box" checked><span>Krabica</span></label>
+          <label><input type="radio" name="package_type" value="bag"><span>Sáčok</span></label>
+        </div>
+      </fieldset>
+      <label class="switch-row">
+        <input type="checkbox" name="allegro" role="switch">
+        <span class="switch" aria-hidden="true"></span>
+        <span><b>Allegro zásielka</b><small>Uloží sa rovno na fialovú Allegro policu, bez výberu miesta.</small></span>
+      </label>
+      <label class="field">
+        <span>Poznámka <small>(nepovinné)</small></span>
+        <input name="note" maxlength="500" autocomplete="off">
+      </label>
+      <p class="hint">Miesto vyberieš ďalším krokom jedným ťuknutím na mapu. Na policiach sa sektor určí sám.</p>
+      <div class="actions">
+        <button type="submit" class="btn primary wide" data-add-submit>Vybrať miesto na mape</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Úprava zásielky -->
+  <dialog id="edit-dialog" class="sheet" aria-labelledby="edit-title">
+    <form method="dialog" id="edit-form" novalidate>
+      <header class="sheet-head">
+        <h2 id="edit-title">Upraviť zásielku</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Zavrieť">✕</button>
+      </header>
+      <label class="field">
+        <span>Číslo zásielky</span>
+        <input name="number" class="big-input" autocomplete="off" spellcheck="false" autocapitalize="characters">
+        <small class="field-msg" data-edit-msg></small>
+      </label>
+      <fieldset class="field">
+        <legend>Obal</legend>
+        <div class="segmented">
+          <label><input type="radio" name="package_type" value="box"><span>Krabica</span></label>
+          <label><input type="radio" name="package_type" value="bag"><span>Sáčok</span></label>
+        </div>
+      </fieldset>
+      <label class="switch-row">
+        <input type="checkbox" name="allegro" role="switch">
+        <span class="switch" aria-hidden="true"></span>
+        <span><b>Allegro zásielka</b><small>Po vypnutí vyberieš nové miesto na mape.</small></span>
+      </label>
+      <label class="field">
+        <span>Poznámka</span>
+        <input name="note" maxlength="500" autocomplete="off">
+      </label>
+      <div class="actions">
+        <button type="submit" class="btn primary wide">Uložiť zmeny</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Viac zásielok v jednom sektore -->
+  <dialog id="cluster-dialog" class="sheet" aria-labelledby="cluster-title">
+    <header class="sheet-head">
+      <h2 id="cluster-title">Zásielky v sektore</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Zavrieť">✕</button>
+    </header>
+    <ul class="plist compact" data-cluster-list></ul>
+  </dialog>
+
+  <!-- Skener -->
+  <dialog id="scanner-dialog" class="scanner" aria-labelledby="scan-title">
+    <header class="sheet-head on-dark">
+      <h2 id="scan-title" data-scan-title>Naskenuj čiarový kód</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Zavrieť skener">✕</button>
+    </header>
+    <div class="scan-view">
+      <video muted playsinline autoplay></video>
+      <div class="scan-window" aria-hidden="true"></div>
+    </div>
+    <p class="scan-msg" data-scan-msg role="status"></p>
+    <div class="scan-actions">
+      <button type="button" class="btn on-dark" data-torch hidden aria-pressed="false">Svetlo</button>
+      <label class="btn on-dark file-btn">Odfotiť štítok<input type="file" accept="image/*" capture="environment" data-scan-file></label>
+    </div>
+  </dialog>
+
+  <!-- Prihlásenie -->
+  <dialog id="login-dialog" class="sheet narrow" aria-labelledby="login-title">
+    <form id="login-form" novalidate>
+      <header class="sheet-head">
+        <h2 id="login-title">Prihlásenie</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Zavrieť">✕</button>
+      </header>
+      <p class="hint">Prihlás sa rovnakým účtom v mobile aj na počítači – zásielky sa budú synchronizovať.</p>
+      <label class="field"><span>E-mail</span><input name="email" type="email" autocomplete="username" required></label>
+      <label class="field"><span>Heslo</span><input name="password" type="password" autocomplete="current-password" minlength="6" required></label>
+      <p class="field-msg error" data-login-msg role="alert"></p>
+      <div class="actions split">
+        <button type="button" class="btn" data-signup>Vytvoriť účet</button>
+        <button type="submit" class="btn primary">Prihlásiť sa</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Pripojenie k Supabase -->
+  <dialog id="setup-dialog" class="sheet narrow" aria-labelledby="setup-title">
+    <form id="setup-form" novalidate>
+      <header class="sheet-head">
+        <h2 id="setup-title">Pripojenie k databáze</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Zavrieť">✕</button>
+      </header>
+      <p class="hint">Údaje nájdeš v Supabase → Project Settings → API. Vlož iba <b>anon / publishable</b> kľúč, nikdy nie service_role.</p>
+      <label class="field"><span>Project URL</span><input name="url" placeholder="https://xxxx.supabase.co" autocomplete="off" required></label>
+      <label class="field"><span>Anon / publishable key</span><input name="key" autocomplete="off" required></label>
+      <p class="field-msg error" data-setup-msg role="alert"></p>
+      <div class="actions"><button type="submit" class="btn primary wide">Uložiť pripojenie</button></div>
+    </form>
+  </dialog>
+
+  <!-- Nastavenia -->
+  <dialog id="settings-dialog" class="sheet wide" aria-labelledby="settings-title">
+    <header class="sheet-head">
+      <h2 id="settings-title">Nastavenia a nástroje</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Zavrieť">✕</button>
+    </header>
+    <div class="settings" data-settings></div>
+    <input type="file" accept="image/*" hidden data-photo-file>
+    <input type="file" accept=".json,.csv,application/json,text/csv" hidden data-import-file>
+  </dialog>
+
+  <!-- Náhľad importu -->
+  <dialog id="import-dialog" class="sheet" aria-labelledby="import-title">
+    <header class="sheet-head">
+      <h2 id="import-title">Import zásielok</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Zavrieť">✕</button>
+    </header>
+    <div data-import-body></div>
+  </dialog>
+
+  <!-- Sken z videa -->
+  <dialog id="video-dialog" class="sheet full" aria-labelledby="video-title">
+    <header class="sheet-head">
+      <h2 id="video-title">Sken pracoviska z videa</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Zavrieť">✕</button>
+    </header>
+    <div class="video-body" data-video-body></div>
+  </dialog>
+
+  <!-- Inštalácia na iPhone -->
+  <dialog id="ios-dialog" class="sheet narrow" aria-labelledby="ios-title">
+    <header class="sheet-head">
+      <h2 id="ios-title">Pridať Regál na plochu</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Zavrieť">✕</button>
+    </header>
+    <ol class="steps">
+      <li>V Safari ťukni na tlačidlo <b>Zdieľať</b> (štvorec so šípkou).</li>
+      <li>Vyber <b>Pridať na plochu</b>.</li>
+      <li>Potvrď <b>Pridať</b>. Pri prvom skenovaní povoľ fotoaparát.</li>
+    </ol>
+  </dialog>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <noscript><p class="noscript">Regál potrebuje zapnutý JavaScript.</p></noscript>
+</body>
+</html>
