@@ -25,6 +25,22 @@ function svg(tag, attrs = {}) {
   return e;
 }
 
+const MIN_SIZE = 0.03;
+/** Zmena veľkosti obdĺžnika rohom (0 ľavý horný … 3 ľavý dolný) alebo okrajom (0 horný, 1 pravý, 2 dolný, 3 ľavý). */
+export function resizeRect(orig, kind, idx, [px, py]) {
+  let x0 = orig[0][0], y0 = orig[0][1], x1 = orig[2][0], y1 = orig[2][1];
+  px = clamp01(px); py = clamp01(py);
+  const left = kind === 'rcorner' ? idx === 0 || idx === 3 : idx === 3;
+  const right = kind === 'rcorner' ? idx === 1 || idx === 2 : idx === 1;
+  const top = kind === 'rcorner' ? idx === 0 || idx === 1 : idx === 0;
+  const bottom = kind === 'rcorner' ? idx === 2 || idx === 3 : idx === 2;
+  if (left) x0 = Math.min(px, x1 - MIN_SIZE);
+  if (right) x1 = Math.max(px, x0 + MIN_SIZE);
+  if (top) y0 = Math.min(py, y1 - MIN_SIZE);
+  if (bottom) y1 = Math.max(py, y0 + MIN_SIZE);
+  return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+}
+
 export class MapView {
   constructor(root, handlers = {}) {
     this.root = root;
@@ -195,11 +211,41 @@ export class MapView {
       this.drag = { kind: 'parcel', number: target.dataset.number, el: target, moved: false };
     } else if (this.mode === 'place' && target?.dataset.drag === 'preview') {
       this.drag = { kind: 'preview', el: target, moved: false };
-    } else if (this.mode === 'calibrate' && target?.dataset.drag) {
-      this.drag = { kind: target.dataset.drag, group: target.dataset.group, corner: Number(target.dataset.corner), start: this.toNorm(e.clientX, e.clientY), orig: structuredClone(this.calib.groups[target.dataset.group].quad), moved: false };
-      this.activeGroup = target.dataset.group;
-      this.h.onActiveGroup?.(this.activeGroup);
+    } else if (this.mode === 'calibrate') {
+      // úchyt hľadáme podľa vzdialenosti (nie podľa cieľa udalosti) – dotyk prstom býva nepresný
+      const hit = this.calibHit(e.clientX, e.clientY);
+      if (hit) {
+        this.drag = { ...hit, start: this.toNorm(e.clientX, e.clientY), orig: structuredClone(this.calib.groups[hit.group].quad), moved: false };
+        this.viewport.classList.add('calib-dragging');
+      }
     }
+  }
+
+  /** Úchyty aktívnej zóny v súradniciach 0..1 – rovnaké ako vykreslené. */
+  calibHandles(name) {
+    const q = this.calib.groups[name].quad;
+    if (!SHELF_GROUPS[name] && isAxisRect(q)) {
+      const [x0, y0] = q[0], [x1, y1] = q[2];
+      return [
+        ...[[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map((p, i) => ({ p, kind: 'rcorner', corner: i })),
+        ...[[(x0 + x1) / 2, y0], [x1, (y0 + y1) / 2], [(x0 + x1) / 2, y1], [x0, (y0 + y1) / 2]].map((p, i) => ({ p, kind: 'redge', corner: i })),
+      ];
+    }
+    return q.map((p, i) => ({ p, kind: 'corner', corner: i }));
+  }
+
+  calibHit(cx, cy) {
+    const g = this.activeGroup;
+    if (!this.calib?.groups[g]) return null;
+    const r = this.stage.getBoundingClientRect();
+    let best = null, bestD = 30;   // px
+    for (const h of this.calibHandles(g)) {
+      const d = Math.hypot(r.left + h.p[0] * r.width - cx, r.top + h.p[1] * r.height - cy);
+      if (d < bestD) { bestD = d; best = h; }
+    }
+    if (best) return { kind: best.kind, corner: best.corner, group: g };
+    if (pointInPoly(this.toNorm(cx, cy), this.calib.groups[g].quad)) return { kind: 'quad', corner: -1, group: g };
+    return null;
   }
 
   onMove(e) {
@@ -229,9 +275,15 @@ export class MapView {
       } else if (this.drag.kind === 'corner') {
         this.calib.groups[this.drag.group].quad[this.drag.corner] = n;
         this.renderOverlay();
+      } else if (this.drag.kind === 'rcorner' || this.drag.kind === 'redge') {
+        this.calib.groups[this.drag.group].quad = resizeRect(this.drag.orig, this.drag.kind, this.drag.corner, n);
+        this.renderOverlay();
       } else if (this.drag.kind === 'quad') {
-        const ddx = n[0] - this.drag.start[0], ddy = n[1] - this.drag.start[1];
-        this.calib.groups[this.drag.group].quad = this.drag.orig.map(([x, y]) => [clamp01(x + ddx), clamp01(y + ddy)]);
+        let ddx = n[0] - this.drag.start[0], ddy = n[1] - this.drag.start[1];
+        const xs = this.drag.orig.map((p) => p[0]), ys = this.drag.orig.map((p) => p[1]);
+        ddx = Math.min(Math.max(ddx, -Math.min(...xs)), 1 - Math.max(...xs));
+        ddy = Math.min(Math.max(ddy, -Math.min(...ys)), 1 - Math.max(...ys));
+        this.calib.groups[this.drag.group].quad = this.drag.orig.map(([x, y]) => [x + ddx, y + ddy]);
         this.renderOverlay();
       }
       return;
@@ -250,12 +302,13 @@ export class MapView {
     const wasTap = !cancelled && !this.tapCancelled && performance.now() - p.t < 700 && this.pointers.size === 0;
     const drag = this.drag;
     this.drag = null;
+    this.viewport.classList.remove('calib-dragging');
 
     if (drag?.moved && !cancelled) {
       const n = this.toNorm(e.clientX, e.clientY);
       if (drag.kind === 'parcel') { drag.el.classList.remove('dragging'); this.h.onMove?.(drag.number, n); }
       else if (drag.kind === 'preview') { drag.el.classList.remove('dragging'); this.h.onPlace?.(n); }
-      else if (drag.kind === 'corner' || drag.kind === 'quad') this.h.onCalibrate?.(this.calib);
+      else if (['corner', 'quad', 'rcorner', 'redge'].includes(drag.kind)) this.h.onCalibrate?.(this.calib);
       return;
     }
     if (drag && cancelled) { this.renderMarkers(); return; }
@@ -354,13 +407,20 @@ export class MapView {
         const active = name === this.activeGroup;
         o.append(svg('polygon', { points: pts(grp.quad), class: `calib-quad${active ? ' active' : ''}`, 'data-drag': active ? 'quad' : null, 'data-group': name }));
         if (!active) continue;
-        grp.quad.forEach(([x, y], i) => {
-          o.append(svg('circle', { cx: x * W, cy: y * H, r: 11 / this.s, class: 'calib-handle', 'data-drag': 'corner', 'data-group': name, 'data-corner': i }));
-        });
-        const c = centroid(grp.quad);
-        const tl = svg('text', { x: c[0] * W, y: c[1] * H, class: 'calib-name', 'text-anchor': 'middle', 'dominant-baseline': 'central' });
-        tl.textContent = SHELF_GROUPS[name] ? `Polica ${name}` : AREA_LABELS[name];
-        o.append(tl);
+        const rectMode = !SHELF_GROUPS[name] && isAxisRect(grp.quad);
+        const handle = (cx, cy, drag, idx, cls = '') => {
+          // neviditeľný väčší kruh = pohodlné chytenie prstom, viditeľný menší úchyt
+          o.append(svg('circle', { cx, cy, r: 24 / this.s, class: 'calib-hit', 'data-drag': drag, 'data-group': name, 'data-corner': idx }));
+          o.append(svg('circle', { cx, cy, r: 10 / this.s, class: `calib-handle ${cls}`, 'data-drag': drag, 'data-group': name, 'data-corner': idx }));
+        };
+        if (rectMode) {
+          const [[x0, y0], [x1], [, y1]] = [grp.quad[0], grp.quad[1], grp.quad[2]];
+          [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].forEach(([x, y], i) => handle(x * W, y * H, 'rcorner', i));
+          [[(x0 + x1) / 2, y0], [x1, (y0 + y1) / 2], [(x0 + x1) / 2, y1], [x0, (y0 + y1) / 2]]
+            .forEach(([x, y], i) => handle(x * W, y * H, 'redge', i, 'edge'));
+        } else {
+          grp.quad.forEach(([x, y], i) => handle(x * W, y * H, 'corner', i));
+        }
       }
     }
   }

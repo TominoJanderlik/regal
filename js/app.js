@@ -118,6 +118,7 @@ function bindStatic() {
     if (z === 'in') map.zoomBy(1.5); else if (z === 'out') map.zoomBy(1 / 1.5); else map.fit();
   }));
   $('[data-open-photo]').addEventListener('click', () => pickPhoto());
+  $('[data-edit-zones]').addEventListener('click', () => { if (state.place) cancelPlacement(); startCalibration(state.calibGroup === 'A' ? 'table' : state.calibGroup); });
 
   $$('.bottom-nav [data-nav]').forEach((b) => b.addEventListener('click', async () => {
     const a = b.dataset.nav;
@@ -835,11 +836,11 @@ async function exportBackup() {
 }
 
 // ======================================================================= kalibrácia zón
-function startCalibration() {
+function startCalibration(active = 'A') {
   if (state.place) cancelPlacement();
   clearFound(false);
-  state.calibGroup = 'A';
-  map.setMode('calibrate', { zones: store.getZones(), active: 'A' });
+  state.calibGroup = active;
+  map.setMode('calibrate', { zones: store.getZones(), active });
   $('#calib-bar').hidden = false;
   $('#no-photo').hidden = true;
   $('#result').hidden = true;
@@ -848,11 +849,14 @@ function startCalibration() {
 }
 
 function renderCalibBar() {
-  const names = [...Object.keys(SHELF_GROUPS), 'table', 'front', 'allegro'];
+  const names = ['table', 'front', 'allegro', ...Object.keys(SHELF_GROUPS)];
   const label = (n) => SHELF_GROUPS[n] ? n : n === 'table' ? 'Stôl' : n === 'front' ? 'Pred stolom' : 'Allegro';
   $('[data-calib-groups]').innerHTML = names.map((n) => `<button type="button" data-g="${n}" aria-pressed="${state.calibGroup === n}">${label(n)}</button>`).join('');
   $$('[data-calib-groups] button').forEach((b) => b.addEventListener('click', () => { state.calibGroup = b.dataset.g; map.setActiveGroup(b.dataset.g); renderCalibBar(); }));
   const isShelf = Boolean(SHELF_GROUPS[state.calibGroup]);
+  $('#calib-bar .ab-text').innerHTML = isShelf
+    ? `<b>Polica ${state.calibGroup}</b> · potiahni rohy na kraje police, celú policu posunieš potiahnutím jej stredu.`
+    : `<b>${{ table: 'Stôl', front: 'Pred stolom', allegro: 'Allegro' }[state.calibGroup]}</b> · potiahni stred na presun, rohy a biele úchyty na okrajoch zónu natiahnu.`;
   const g = map.getCalibration()?.groups[state.calibGroup];
   const dirBtn = $('[data-calib-dir]'), revBtn = $('[data-calib-reverse]');
   dirBtn.hidden = revBtn.hidden = !isShelf;
@@ -879,10 +883,28 @@ function bindCalibBar() {
   });
   $('[data-calib-cancel]').addEventListener('click', endCalibration);
   $('[data-calib-save]').addEventListener('click', async () => {
-    await store.setWorkspaceZones(map.getCalibration());
+    const before = store.getZones();
+    const after = map.getCalibration();
+    await store.setWorkspaceZones(after);
+    // zásielky na stole a pred stolom sa posunú spolu so zónou (rovnaká relatívna poloha)
+    let moved = 0;
+    for (const p of store.allParcels()) {
+      if (p.location !== 'table' && p.location !== 'front') continue;
+      const a = bbox(before.groups[p.location].quad), b = bbox(after.groups[p.location].quad);
+      if (a.join() === b.join() || p.x == null) continue;
+      const u = Math.min(1, Math.max(0, (p.x - a[0]) / (a[2] - a[0] || 1)));
+      const v = Math.min(1, Math.max(0, (p.y - a[1]) / (a[3] - a[1] || 1)));
+      await store.saveParcel({ ...p, x: b[0] + u * (b[2] - b[0]), y: b[1] + v * (b[3] - b[1]) });
+      moved++;
+    }
     endCalibration();
-    toast('Zóny sú uložené. Zásielky na policiach sa zobrazia v strede svojich sektorov.');
+    toast(moved ? `Zóny sú uložené. Zásielky na stole a pred stolom (${moved}) sa posunuli so zónou.` : 'Zóny sú uložené.');
   });
+}
+
+function bbox(q) {
+  const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]);
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
 }
 
 function endCalibration() {
